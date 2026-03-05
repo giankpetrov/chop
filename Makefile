@@ -12,8 +12,17 @@ test:
 clean:
 	rm -rf bin/
 
-GOOS ?= $(shell go env GOOS 2>/dev/null || echo linux)
-GOARCH ?= $(shell go env GOARCH 2>/dev/null || echo amd64)
+UNAME_S := $(shell uname -s)
+ifeq ($(findstring MINGW,$(UNAME_S)),MINGW)
+  GOOS ?= windows
+else ifeq ($(findstring MSYS,$(UNAME_S)),MSYS)
+  GOOS ?= windows
+else ifeq ($(findstring Darwin,$(UNAME_S)),Darwin)
+  GOOS ?= darwin
+else
+  GOOS ?= linux
+endif
+GOARCH ?= $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,amd64)
 EXT := $(if $(filter windows,$(GOOS)),.exe,)
 BINARY := bin/chop$(EXT)
 
