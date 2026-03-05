@@ -100,7 +100,8 @@ func looksLikeDockerBuildOutput(s string) bool {
 func looksLikeDockerImagesOutput(s string) bool {
 	return strings.Contains(s, "REPOSITORY") ||
 		strings.Contains(s, "IMAGE ID") ||
-		strings.Contains(s, "TAG")
+		strings.Contains(s, "TAG") ||
+		strings.Contains(s, "IMAGE") && strings.Contains(s, "DISK USAGE")
 }
 
 func looksLikeDockerStatsOutput(s string) bool {

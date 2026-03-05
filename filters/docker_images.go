@@ -20,7 +20,23 @@ func filterDockerImages(raw string) (string, error) {
 		return "", nil
 	}
 
-	header := lines[0]
+	// Skip warning lines at the top
+	startIdx := 0
+	for startIdx < len(lines) && strings.HasPrefix(strings.ToUpper(strings.TrimSpace(lines[startIdx])), "WARNING") {
+		startIdx++
+	}
+	if startIdx >= len(lines) {
+		return raw, nil
+	}
+
+	header := lines[startIdx]
+
+	// New format: IMAGE, ID, DISK USAGE, CONTENT SIZE, EXTRA
+	if strings.Contains(header, "DISK USAGE") {
+		return filterDockerImagesNewFormat(raw, lines[startIdx:])
+	}
+
+	// Classic format: REPOSITORY, TAG, IMAGE ID, CREATED, SIZE
 	repoIdx := strings.Index(header, "REPOSITORY")
 	tagIdx := strings.Index(header, "TAG")
 	sizeIdx := strings.Index(header, "SIZE")
@@ -29,7 +45,6 @@ func filterDockerImages(raw string) (string, error) {
 		return raw, nil
 	}
 
-	// Find IMAGE ID column to bound TAG end
 	imageIDIdx := strings.Index(header, "IMAGE ID")
 	if imageIDIdx == -1 {
 		imageIDIdx = sizeIdx
@@ -38,7 +53,7 @@ func filterDockerImages(raw string) (string, error) {
 	var tagged []string
 	var noneEntries []string
 
-	for _, line := range lines[1:] {
+	for _, line := range lines[startIdx+1:] {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -59,7 +74,6 @@ func filterDockerImages(raw string) (string, error) {
 	if len(tagged) > 0 {
 		result = tagged
 	} else {
-		// Only show <none> images if that's all there is
 		result = noneEntries
 	}
 
@@ -70,5 +84,49 @@ func filterDockerImages(raw string) (string, error) {
 
 	result = append(result, fmt.Sprintf("%d images total", total))
 	out := strings.Join(result, "\n")
+	return outputSanityCheck(raw, out), nil
+}
+
+// filterDockerImagesNewFormat handles the newer docker images format with
+// IMAGE, ID, DISK USAGE, CONTENT SIZE columns.
+func filterDockerImagesNewFormat(raw string, lines []string) (string, error) {
+	header := lines[0]
+	imageIdx := strings.Index(header, "IMAGE")
+	idIdx := strings.Index(header, "ID")
+	diskIdx := strings.Index(header, "DISK USAGE")
+	contentIdx := strings.Index(header, "CONTENT SIZE")
+
+	if imageIdx == -1 || diskIdx == -1 {
+		return raw, nil
+	}
+
+	// Use ID column to bound image name, fallback to diskIdx
+	nameEnd := idIdx
+	if nameEnd == -1 || nameEnd <= imageIdx {
+		nameEnd = diskIdx
+	}
+
+	// Bound disk usage column end
+	diskEnd := len(header)
+	if contentIdx > diskIdx {
+		diskEnd = contentIdx
+	}
+
+	var images []string
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		name := strings.TrimSpace(extractColumn(line, imageIdx, nameEnd))
+		disk := strings.TrimSpace(extractColumn(line, diskIdx, diskEnd))
+		images = append(images, fmt.Sprintf("%s %s", name, disk))
+	}
+
+	if len(images) == 0 {
+		return raw, nil
+	}
+
+	images = append(images, fmt.Sprintf("%d images total", len(images)))
+	out := strings.Join(images, "\n")
 	return outputSanityCheck(raw, out), nil
 }
