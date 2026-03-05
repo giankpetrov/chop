@@ -16,19 +16,35 @@ func TestFilterGoBuildClean(t *testing.T) {
 }
 
 func TestFilterGoBuildErrors(t *testing.T) {
-	raw := "# github.com/example/myapp\n" +
-		"./main.go:12:5: undefined: Config\n" +
-		"./main.go:12:5: undefined: Config\n" + // duplicate
-		"./main.go:15:10: cannot use x (variable of type string) as type int in argument to fmt.Println\n" +
-		"# github.com/example/myapp/handlers\n" +
-		"./handler.go:23:8: imported and not used: \"fmt\"\n" +
-		"./handler.go:45:3: undefined: handleRequest\n" +
-		"# github.com/example/myapp/services\n" +
-		"./service.go:67:12: not enough arguments in call to db.Query\n" +
-		"./service.go:89:7: cannot convert result (variable of type []byte) to type string\n" +
-		"# github.com/example/myapp/models\n" +
-		"./model.go:34:5: undefined: UserRole\n" +
-		"./model.go:56:9: too many arguments in call to NewUser\n"
+	// Real go build output includes package headers and sometimes duplicate
+	// error references. The filter strips headers and deduplicates.
+	raw := "# github.com/example/myapp/cmd/server\n" +
+		"cmd/server/main.go:12:5: undefined: Config\n" +
+		"cmd/server/main.go:12:5: undefined: Config\n" +
+		"cmd/server/main.go:12:5: undefined: Config\n" +
+		"cmd/server/main.go:15:10: cannot use x (variable of type string) as type int in argument to fmt.Println\n" +
+		"cmd/server/main.go:15:10: cannot use x (variable of type string) as type int in argument to fmt.Println\n" +
+		"# github.com/example/myapp/internal/handlers\n" +
+		"internal/handlers/user.go:23:8: imported and not used: \"fmt\"\n" +
+		"internal/handlers/user.go:23:8: imported and not used: \"fmt\"\n" +
+		"internal/handlers/user.go:23:8: imported and not used: \"fmt\"\n" +
+		"internal/handlers/user.go:45:3: undefined: handleRequest\n" +
+		"internal/handlers/user.go:45:3: undefined: handleRequest\n" +
+		"# github.com/example/myapp/internal/services\n" +
+		"internal/services/auth.go:67:12: not enough arguments in call to db.Query\n" +
+		"internal/services/auth.go:67:12: not enough arguments in call to db.Query\n" +
+		"internal/services/auth.go:67:12: not enough arguments in call to db.Query\n" +
+		"internal/services/auth.go:89:7: cannot convert result (variable of type []byte) to type string\n" +
+		"internal/services/auth.go:89:7: cannot convert result (variable of type []byte) to type string\n" +
+		"# github.com/example/myapp/internal/models\n" +
+		"internal/models/user.go:34:5: undefined: UserRole\n" +
+		"internal/models/user.go:34:5: undefined: UserRole\n" +
+		"internal/models/user.go:56:9: too many arguments in call to NewUser\n" +
+		"internal/models/user.go:56:9: too many arguments in call to NewUser\n" +
+		"# github.com/example/myapp/internal/middleware\n" +
+		"internal/middleware/auth.go:11:2: imported and not used: \"context\"\n" +
+		"internal/middleware/auth.go:11:2: imported and not used: \"context\"\n" +
+		"internal/middleware/auth.go:11:2: imported and not used: \"context\"\n"
 
 	got, err := filterGoBuild(raw)
 	if err != nil {
@@ -42,8 +58,8 @@ func TestFilterGoBuildErrors(t *testing.T) {
 	if !strings.Contains(got, "main.go:12") {
 		t.Errorf("expected file:line preserved, got:\n%s", got)
 	}
-	if !strings.Contains(got, "8 error(s)") {
-		t.Errorf("expected '8 error(s)' summary, got:\n%s", got)
+	if !strings.Contains(got, "9 error(s)") {
+		t.Errorf("expected '9 error(s)' summary, got:\n%s", got)
 	}
 
 	// Package headers stripped
@@ -51,7 +67,7 @@ func TestFilterGoBuildErrors(t *testing.T) {
 		t.Errorf("expected package header stripped, got:\n%s", got)
 	}
 
-	// Duplicate stripped
+	// Duplicates stripped
 	count := strings.Count(got, "undefined: Config")
 	if count != 1 {
 		t.Errorf("expected duplicate stripped (got %d occurrences):\n%s", count, got)

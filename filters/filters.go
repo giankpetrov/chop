@@ -30,6 +30,12 @@ func Get(command string, args []string) FilterFunc {
 		return filterEslint
 	case "biome":
 		return filterEslint
+	case "gh":
+		return getGhFilter(args)
+	case "grep":
+		return filterGrep
+	case "rg":
+		return filterGrep
 	case "curl":
 		return filterCurl
 	case "http":
@@ -156,6 +162,22 @@ func getGoFilter(args []string) FilterFunc {
 		return filterGoTestCmd
 	case "build", "vet":
 		return filterGoBuild
+	default:
+		return nil
+	}
+}
+
+func getGhFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "pr":
+		return getGhPrFilter(args[1:])
+	case "issue":
+		return getGhIssueFilter(args[1:])
+	case "run":
+		return getGhRunFilter(args[1:])
 	default:
 		return nil
 	}
