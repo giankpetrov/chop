@@ -29,33 +29,59 @@ type namedFilter struct {
 
 func allFilters() []namedFilter {
 	return []namedFilter{
+		// Git
 		{"filterGitStatus", filterGitStatus},
 		{"filterGitLog", filterGitLog},
 		{"filterGitDiff", filterGitDiff},
 		{"filterGitBranch", filterGitBranch},
+		// npm
 		{"filterNpmInstall", filterNpmInstall},
 		{"filterNpmList", filterNpmList},
 		{"filterNpmTestCmd", filterNpmTestCmd},
+		// Docker
 		{"filterDockerPs", filterDockerPs},
 		{"filterDockerBuild", filterDockerBuild},
 		{"filterDockerImages", filterDockerImages},
+		{"filterDockerLogs", filterDockerLogs},
+		{"filterDockerInspect", filterDockerInspect},
+		{"filterDockerStats", filterDockerStats},
+		{"filterDockerNetworkLs", filterDockerNetworkLs},
+		{"filterDockerVolumeLs", filterDockerVolumeLs},
+		{"filterDockerHistory", filterDockerHistory},
+		{"filterDockerSystemDf", filterDockerSystemDf},
+		{"filterDockerTop", filterDockerTop},
+		{"filterDockerDiff", filterDockerDiff},
+		// .NET
 		{"filterDotnetBuild", filterDotnetBuild},
 		{"filterDotnetTestCmd", filterDotnetTestCmd},
+		// Kubernetes
 		{"filterKubectlGet", filterKubectlGet},
 		{"filterKubectlDescribe", filterKubectlDescribe},
 		{"filterKubectlLogs", filterKubectlLogs},
+		{"filterKubectlTop", filterKubectlTop},
+		{"filterKubectlApply", filterKubectlApply},
+		{"filterKubectlDelete", filterKubectlDelete},
+		// Helm
+		{"filterHelmInstall", filterHelmInstall},
+		{"filterHelmList", filterHelmList},
+		// Terraform
 		{"filterTerraformPlan", filterTerraformPlan},
 		{"filterTerraformApply", filterTerraformApply},
 		{"filterTerraformInit", filterTerraformInit},
+		// HTTP
 		{"filterCurl", filterCurl},
 		{"filterHttpie", filterHttpie},
+		// Rust
 		{"filterCargoTestCmd", filterCargoTestCmd},
 		{"filterCargoBuild", filterCargoBuild},
 		{"filterCargoClippy", filterCargoClippy},
+		// Go
 		{"filterGoTestCmd", filterGoTestCmd},
 		{"filterGoBuild", filterGoBuild},
+		// TypeScript / Lint
 		{"filterTsc", filterTsc},
 		{"filterEslint", filterEslint},
+		// GitHub CLI
 		{"filterGhPrList", filterGhPrList},
 		{"filterGhPrView", filterGhPrView},
 		{"filterGhPrChecks", filterGhPrChecks},
@@ -63,7 +89,9 @@ func allFilters() []namedFilter {
 		{"filterGhIssueView", filterGhIssueView},
 		{"filterGhRunList", filterGhRunList},
 		{"filterGhRunView", filterGhRunView},
+		// Search
 		{"filterGrep", filterGrep},
+		// Cloud
 		{"filterAwsGeneric", filterAwsGeneric},
 		{"filterAwsS3Ls", filterAwsS3Ls},
 		{"filterAwsEc2Describe", filterAwsEc2Describe},
@@ -73,12 +101,47 @@ func allFilters() []namedFilter {
 		{"filterAzResourceList", filterAzResourceList},
 		{"filterGcloudGeneric", filterGcloudGeneric},
 		{"filterGcloudInstancesList", filterGcloudInstancesList},
+		// Java
 		{"filterMavenBuild", filterMavenBuild},
 		{"filterMavenTest", filterMavenTest},
 		{"filterMavenDepTree", filterMavenDepTree},
 		{"filterGradleBuild", filterGradleBuild},
 		{"filterGradleTest", filterGradleTest},
 		{"filterGradleDeps", filterGradleDeps},
+		// JS ecosystem
+		{"filterPnpmInstall", filterPnpmInstall},
+		{"filterYarnInstall", filterYarnInstall},
+		{"filterBunInstall", filterBunInstall},
+		// Angular / Nx
+		{"filterNgBuild", filterNgBuild},
+		{"filterNgTest", filterNgTest},
+		{"filterNgServe", filterNgServe},
+		{"filterNxBuild", filterNxBuild},
+		{"filterNxTest", filterNxTest},
+		// Python
+		{"filterPytest", filterPytest},
+		{"filterPipInstall", filterPipInstall},
+		{"filterPipList", filterPipList},
+		{"filterMypy", filterMypy},
+		{"filterRuff", filterRuff},
+		{"filterPylint", filterPylint},
+		{"filterUvInstall", filterUvInstall},
+		// Ruby
+		{"filterBundleInstall", filterBundleInstall},
+		{"filterRspec", filterRspec},
+		{"filterRubocop", filterRubocop},
+		// PHP
+		{"filterComposerInstall", filterComposerInstall},
+		// Build tools
+		{"filterMake", filterMake},
+		{"filterCmake", filterCmake},
+		{"filterCompiler", filterCompiler},
+		// System
+		{"filterPing", filterPing},
+		{"filterPsCmd", filterPsCmd},
+		{"filterNetstat", filterNetstat},
+		{"filterDf", filterDf},
+		// Auto-detect
 		{"filterAutoDetect", filterAutoDetect},
 	}
 }

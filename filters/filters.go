@@ -12,12 +12,20 @@ func Get(command string, args []string) FilterFunc {
 		return getNpmFilter(args)
 	case "npx":
 		return getNpxFilter(args)
+	case "pnpm":
+		return getPnpmFilter(args)
+	case "yarn":
+		return getYarnFilter(args)
+	case "bun":
+		return getBunFilter(args)
 	case "docker":
 		return getDockerFilter(args)
 	case "dotnet":
 		return getDotnetFilter(args)
 	case "kubectl":
 		return getKubectlFilter(args)
+	case "helm":
+		return getHelmFilter(args)
 	case "terraform":
 		return getTerraformFilter(args)
 	case "cargo":
@@ -50,6 +58,52 @@ func Get(command string, args []string) FilterFunc {
 		return getMavenFilter(args)
 	case "gradle", "gradlew":
 		return getGradleFilter(args)
+	// Angular / Nx
+	case "ng":
+		return getAngularFilter(args)
+	case "nx":
+		return getNxFilter(args)
+	// Python
+	case "pytest":
+		return filterPytest
+	case "pip", "pip3":
+		return getPipFilter(args)
+	case "uv":
+		return getUvFilter(args)
+	case "mypy":
+		return filterMypy
+	case "ruff":
+		return filterRuff
+	case "flake8":
+		return filterRuff
+	case "pylint":
+		return filterPylint
+	// Ruby
+	case "bundle", "bundler":
+		return getBundleFilter(args)
+	case "rspec":
+		return filterRspec
+	case "rubocop":
+		return filterRubocop
+	// PHP
+	case "composer":
+		return getComposerFilter(args)
+	// Build tools
+	case "make":
+		return filterMake
+	case "cmake":
+		return filterCmake
+	case "gcc", "g++", "cc", "c++", "clang", "clang++":
+		return filterCompiler
+	// System
+	case "ping":
+		return filterPing
+	case "ps":
+		return filterPsCmd
+	case "ss", "netstat":
+		return filterNetstat
+	case "df", "du":
+		return filterDf
 	default:
 		return nil
 	}
@@ -64,6 +118,53 @@ func getDockerFilter(args []string) FilterFunc {
 		return filterDockerPs
 	case "build":
 		return filterDockerBuild
+	case "images":
+		return filterDockerImages
+	case "logs":
+		return filterDockerLogs
+	case "inspect":
+		return filterDockerInspect
+	case "stats":
+		return filterDockerStats
+	case "top":
+		return filterDockerTop
+	case "diff":
+		return filterDockerDiff
+	case "history":
+		return filterDockerHistory
+	case "network":
+		if len(args) > 1 && args[1] == "ls" {
+			return filterDockerNetworkLs
+		}
+		return nil
+	case "volume":
+		if len(args) > 1 && args[1] == "ls" {
+			return filterDockerVolumeLs
+		}
+		return nil
+	case "system":
+		if len(args) > 1 && args[1] == "df" {
+			return filterDockerSystemDf
+		}
+		return nil
+	case "compose":
+		return getDockerComposeFilter(args[1:])
+	default:
+		return nil
+	}
+}
+
+func getDockerComposeFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "ps":
+		return filterDockerPs
+	case "build":
+		return filterDockerBuild
+	case "logs":
+		return filterDockerLogs
 	case "images":
 		return filterDockerImages
 	default:
@@ -100,6 +201,14 @@ func getNpmFilter(args []string) FilterFunc {
 		return filterNpmList
 	case "test", "t":
 		return filterNpmTestCmd
+	case "run":
+		if len(args) > 1 {
+			switch args[1] {
+			case "test", "build", "lint":
+				return filterNpmTestCmd
+			}
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -130,6 +239,28 @@ func getKubectlFilter(args []string) FilterFunc {
 		return filterKubectlDescribe
 	case "logs", "log":
 		return filterKubectlLogs
+	case "top":
+		return filterKubectlTop
+	case "apply":
+		return filterKubectlApply
+	case "delete":
+		return filterKubectlDelete
+	default:
+		return nil
+	}
+}
+
+func getHelmFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install", "upgrade":
+		return filterHelmInstall
+	case "list", "ls":
+		return filterHelmList
+	case "status":
+		return filterHelmInstall // same format
 	default:
 		return nil
 	}
@@ -204,6 +335,142 @@ func getTerraformFilter(args []string) FilterFunc {
 		return filterTerraformApply
 	case "init":
 		return filterTerraformInit
+	default:
+		return nil
+	}
+}
+
+func getPnpmFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install", "i", "add":
+		return filterPnpmInstall
+	case "list", "ls":
+		return filterNpmList
+	case "test", "t":
+		return filterNpmTestCmd
+	default:
+		return nil
+	}
+}
+
+func getYarnFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install", "add":
+		return filterYarnInstall
+	case "list":
+		return filterNpmList
+	case "test":
+		return filterNpmTestCmd
+	default:
+		return nil
+	}
+}
+
+func getBunFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install", "i", "add":
+		return filterBunInstall
+	case "test", "t":
+		return filterNpmTestCmd
+	default:
+		return nil
+	}
+}
+
+func getAngularFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "build", "b":
+		return filterNgBuild
+	case "test", "t":
+		return filterNgTest
+	case "serve", "s":
+		return filterNgServe
+	default:
+		return nil
+	}
+}
+
+func getNxFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "build", "run":
+		return filterNxBuild
+	case "test":
+		return filterNxTest
+	default:
+		return nil
+	}
+}
+
+func getPipFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install":
+		return filterPipInstall
+	case "list":
+		return filterPipList
+	default:
+		return nil
+	}
+}
+
+func getUvFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "pip":
+		if len(args) > 1 {
+			switch args[1] {
+			case "install":
+				return filterUvInstall
+			case "list":
+				return filterPipList
+			}
+		}
+		return nil
+	case "install", "add":
+		return filterUvInstall
+	default:
+		return nil
+	}
+}
+
+func getBundleFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return filterBundleInstall
+	}
+	switch args[0] {
+	case "install":
+		return filterBundleInstall
+	default:
+		return nil
+	}
+}
+
+func getComposerFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "install", "update", "require":
+		return filterComposerInstall
 	default:
 		return nil
 	}

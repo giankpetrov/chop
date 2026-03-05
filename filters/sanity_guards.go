@@ -103,6 +103,43 @@ func looksLikeDockerImagesOutput(s string) bool {
 		strings.Contains(s, "TAG")
 }
 
+func looksLikeDockerStatsOutput(s string) bool {
+	return strings.Contains(s, "CPU %") ||
+		strings.Contains(s, "MEM USAGE") ||
+		strings.Contains(s, "NET I/O")
+}
+
+func looksLikeDockerNetworkLsOutput(s string) bool {
+	return strings.Contains(s, "NETWORK ID") ||
+		(strings.Contains(s, "NAME") && strings.Contains(s, "DRIVER") && strings.Contains(s, "SCOPE"))
+}
+
+func looksLikeDockerVolumeLsOutput(s string) bool {
+	return strings.Contains(s, "VOLUME NAME") ||
+		(strings.Contains(s, "DRIVER") && strings.Contains(s, "VOLUME"))
+}
+
+func looksLikeDockerHistoryOutput(s string) bool {
+	return strings.Contains(s, "CREATED BY") ||
+		(strings.Contains(s, "IMAGE") && strings.Contains(s, "SIZE") && strings.Contains(s, "CREATED"))
+}
+
+func looksLikeDockerSystemDfOutput(s string) bool {
+	return strings.Contains(s, "RECLAIMABLE") ||
+		(strings.Contains(s, "TYPE") && strings.Contains(s, "TOTAL") && strings.Contains(s, "SIZE"))
+}
+
+func looksLikeDockerDiffOutput(s string) bool {
+	lines := strings.SplitN(s, "\n", 5)
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if len(t) > 2 && (t[0] == 'A' || t[0] == 'C' || t[0] == 'D') && t[1] == ' ' {
+			return true
+		}
+	}
+	return false
+}
+
 func looksLikeDotnetBuildOutput(s string) bool {
 	lower := strings.ToLower(s)
 	return strings.Contains(lower, "build") ||
@@ -146,6 +183,36 @@ func looksLikeKubectlDescribeOutput(s string) bool {
 func looksLikeKubectlLogsOutput(_ string) bool {
 	// Logs can be anything — always attempt to filter
 	return true
+}
+
+func looksLikeKubectlTopOutput(s string) bool {
+	return strings.Contains(s, "CPU(cores)") || strings.Contains(s, "MEMORY(bytes)")
+}
+
+func looksLikeKubectlApplyOutput(s string) bool {
+	return strings.Contains(s, "created") ||
+		strings.Contains(s, "configured") ||
+		strings.Contains(s, "unchanged") ||
+		strings.Contains(s, "replaced")
+}
+
+func looksLikeKubectlDeleteOutput(s string) bool {
+	return strings.Contains(s, "deleted")
+}
+
+func looksLikeHelmInstallOutput(s string) bool {
+	return strings.Contains(s, "NAME:") ||
+		strings.Contains(s, "STATUS:") ||
+		strings.Contains(s, "REVISION:") ||
+		strings.Contains(s, "Happy Helming") ||
+		strings.Contains(s, "NAMESPACE:")
+}
+
+func looksLikeHelmListOutput(s string) bool {
+	return strings.Contains(s, "NAME") &&
+		strings.Contains(s, "NAMESPACE") &&
+		strings.Contains(s, "STATUS") &&
+		strings.Contains(s, "CHART")
 }
 
 func looksLikeTerraformPlanOutput(s string) bool {
@@ -310,6 +377,195 @@ func looksLikeGradleOutput(s string) bool {
 		strings.Contains(s, "actionable") ||
 		strings.Contains(s, "+---") ||
 		strings.Contains(s, "\\---")
+}
+
+// --- New sanity guards ---
+
+func looksLikeNgBuildOutput(s string) bool {
+	return strings.Contains(s, "Initial Chunk Files") ||
+		strings.Contains(s, "Initial Total") ||
+		strings.Contains(s, "bundle generation") ||
+		strings.Contains(s, "Build at:")
+}
+
+func looksLikeNgTestOutput(s string) bool {
+	return strings.Contains(s, "TOTAL:") ||
+		strings.Contains(s, "Executed") ||
+		strings.Contains(s, "Karma") ||
+		strings.Contains(s, "Chrome")
+}
+
+func looksLikeNgServeOutput(s string) bool {
+	return strings.Contains(s, "listening on") ||
+		strings.Contains(s, "Live Development Server") ||
+		strings.Contains(s, "Angular")
+}
+
+func looksLikeNxBuildOutput(s string) bool {
+	return strings.Contains(s, "NX") ||
+		strings.Contains(s, "nx run") ||
+		strings.Contains(s, "Successfully ran target")
+}
+
+func looksLikeNxTestOutput(s string) bool {
+	return (strings.Contains(s, "NX") || strings.Contains(s, "nx run")) &&
+		(strings.Contains(s, "test") || strings.Contains(s, "Test"))
+}
+
+func looksLikePytestOutput(s string) bool {
+	return strings.Contains(s, "test session starts") ||
+		strings.Contains(s, "passed") ||
+		strings.Contains(s, "failed") ||
+		strings.Contains(s, "collected") ||
+		strings.Contains(s, "pytest")
+}
+
+func looksLikePipInstallOutput(s string) bool {
+	return strings.Contains(s, "Collecting") ||
+		strings.Contains(s, "Successfully installed") ||
+		strings.Contains(s, "already satisfied") ||
+		strings.Contains(s, "Downloading") ||
+		strings.Contains(s, "Installing collected")
+}
+
+func looksLikePipListOutput(s string) bool {
+	return strings.Contains(s, "Package") && strings.Contains(s, "Version")
+}
+
+func looksLikeMypyOutput(s string) bool {
+	return strings.Contains(s, ": error:") ||
+		strings.Contains(s, ": warning:") ||
+		strings.Contains(s, ": note:") ||
+		strings.Contains(s, "Found") ||
+		strings.Contains(s, "mypy") ||
+		strings.Contains(s, "Success:")
+}
+
+func looksLikeRuffOutput(s string) bool {
+	return strings.Contains(s, ": F") ||
+		strings.Contains(s, ": E") ||
+		strings.Contains(s, ": W") ||
+		strings.Contains(s, "Found") ||
+		strings.Contains(s, "fixable")
+}
+
+func looksLikePylintOutput(s string) bool {
+	return strings.Contains(s, "************") ||
+		strings.Contains(s, "(missing-") ||
+		strings.Contains(s, "C0") ||
+		strings.Contains(s, "W0") ||
+		strings.Contains(s, "E0") ||
+		strings.Contains(s, "R0")
+}
+
+func looksLikeUvInstallOutput(s string) bool {
+	return strings.Contains(s, "Resolved") ||
+		strings.Contains(s, "Installed") ||
+		strings.Contains(s, "Prepared")
+}
+
+func looksLikePnpmInstallOutput(s string) bool {
+	return strings.Contains(s, "Packages:") ||
+		strings.Contains(s, "pnpm") ||
+		strings.Contains(s, "Progress:") ||
+		strings.Contains(s, "devDependencies")
+}
+
+func looksLikeYarnInstallOutput(s string) bool {
+	return strings.Contains(s, "yarn") ||
+		strings.Contains(s, "Done in") ||
+		strings.Contains(s, "Resolving") ||
+		strings.Contains(s, "Fetching") ||
+		strings.Contains(s, "YN0000")
+}
+
+func looksLikeBunInstallOutput(s string) bool {
+	return strings.Contains(s, "bun") ||
+		strings.Contains(s, "Installed") ||
+		strings.Contains(s, "Resolved")
+}
+
+func looksLikeBundleInstallOutput(s string) bool {
+	return strings.Contains(s, "Fetching gem metadata") ||
+		strings.Contains(s, "Bundle complete") ||
+		strings.Contains(s, "Installing") ||
+		strings.Contains(s, "bundler") ||
+		strings.Contains(s, "Gemfile")
+}
+
+func looksLikeRspecOutput(s string) bool {
+	return strings.Contains(s, "examples") ||
+		strings.Contains(s, "Finished in") ||
+		strings.Contains(s, "rspec") ||
+		strings.Contains(s, "Failures:") ||
+		strings.Contains(s, "Randomized with seed")
+}
+
+func looksLikeRubocopOutput(s string) bool {
+	return strings.Contains(s, "Inspecting") ||
+		strings.Contains(s, "offenses") ||
+		strings.Contains(s, "Offenses:") ||
+		strings.Contains(s, "Style/") ||
+		strings.Contains(s, "Lint/") ||
+		strings.Contains(s, "Layout/")
+}
+
+func looksLikeComposerOutput(s string) bool {
+	return strings.Contains(s, "Installing dependencies") ||
+		strings.Contains(s, "Package operations") ||
+		strings.Contains(s, "composer") ||
+		strings.Contains(s, "autoload") ||
+		strings.Contains(s, "Verifying lock file")
+}
+
+func looksLikeMakeOutput(s string) bool {
+	return strings.Contains(s, "make[") ||
+		strings.Contains(s, "Entering directory") ||
+		strings.Contains(s, "Leaving directory") ||
+		strings.Contains(s, "make:")
+}
+
+func looksLikeCmakeOutput(s string) bool {
+	return strings.Contains(s, "-- ") ||
+		strings.Contains(s, "Building CXX") ||
+		strings.Contains(s, "Building C ") ||
+		strings.Contains(s, "Built target") ||
+		strings.Contains(s, "Configuring done")
+}
+
+func looksLikeCompilerOutput(s string) bool {
+	return strings.Contains(s, ": error:") ||
+		strings.Contains(s, ": warning:") ||
+		strings.Contains(s, ": note:") ||
+		strings.Contains(s, "In function") ||
+		strings.Contains(s, "In file included from")
+}
+
+func looksLikePingOutput(s string) bool {
+	return strings.Contains(s, "PING") ||
+		strings.Contains(s, "Pinging") ||
+		strings.Contains(s, "icmp_seq") ||
+		strings.Contains(s, "ping statistics") ||
+		strings.Contains(s, "Reply from") ||
+		strings.Contains(s, "packets transmitted")
+}
+
+func looksLikePsCmdOutput(s string) bool {
+	return (strings.Contains(s, "PID") &&
+		(strings.Contains(s, "%CPU") || strings.Contains(s, "%MEM") || strings.Contains(s, "COMMAND") || strings.Contains(s, "CMD")))
+}
+
+func looksLikeNetstatOutput(s string) bool {
+	return strings.Contains(s, "LISTEN") ||
+		strings.Contains(s, "ESTAB") ||
+		strings.Contains(s, "ESTABLISHED") ||
+		(strings.Contains(s, "Proto") && strings.Contains(s, "Local Address"))
+}
+
+func looksLikeDfOutput(s string) bool {
+	return strings.Contains(s, "Filesystem") ||
+		strings.Contains(s, "Mounted on") ||
+		strings.Contains(s, "Use%")
 }
 
 // isHexPrefix checks if string starts with what looks like a hex hash (git oneline format)
