@@ -373,9 +373,8 @@ Claude Code integration:
   chop init --uninstall       Remove the hook
   chop init --status          Check hook installation status
 
-Config:
-  %s
-  disabled: [cmd1, cmd2]      Skip filtering for listed commands
+Config (%s):
+  disabled: [cmd1, cmd2]      Skip filtering, return full output for these commands
 
 Examples:
   chop git status             Compressed git status

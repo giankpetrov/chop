@@ -183,11 +183,15 @@ chop config            # show config file path and contents
 `~/.config/chop/config.yml`:
 
 ```yaml
-# Skip filtering for specific commands
+# Skip filtering — these commands return full uncompressed output
 disabled:
   - curl
   - grep
 ```
+
+Commands in the `disabled` list bypass all chop filters and return raw output.
+Useful when you need the full output for a specific tool (e.g., `curl` responses
+you want to parse, or `grep` results you don't want summarized).
 
 ## Development
 
