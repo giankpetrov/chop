@@ -13,6 +13,7 @@ import (
 	"github.com/AgusRdz/chop/discover"
 	"github.com/AgusRdz/chop/filters"
 	"github.com/AgusRdz/chop/hooks"
+	readpkg "github.com/AgusRdz/chop/read"
 	"github.com/AgusRdz/chop/shell"
 	"github.com/AgusRdz/chop/tee"
 	"github.com/AgusRdz/chop/tracking"
@@ -51,6 +52,9 @@ func main() {
 		return
 	case "hook-audit":
 		runHookAudit(os.Args[2:])
+		return
+	case "read":
+		runRead(os.Args[2:])
 		return
 	case "init":
 		if len(os.Args) < 3 {
@@ -333,6 +337,51 @@ func runHookAudit(args []string) {
 	}
 }
 
+func runRead(args []string) {
+	level := "minimal"
+	maxLines := 0
+	lineNumbers := false
+	var filePath string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--aggressive", "-a":
+			level = "aggressive"
+		case "--lines", "-l":
+			if i+1 < len(args) {
+				i++
+				n := 0
+				for _, c := range args[i] {
+					if c >= '0' && c <= '9' {
+						n = n*10 + int(c-'0')
+					}
+				}
+				maxLines = n
+			}
+		case "-n", "--line-numbers":
+			lineNumbers = true
+		default:
+			if filePath == "" {
+				filePath = args[i]
+			}
+		}
+	}
+
+	if filePath == "" {
+		fmt.Fprintln(os.Stderr, "usage: chop read <file> [--aggressive] [--lines N] [-n]")
+		os.Exit(1)
+	}
+
+	raw, filtered, err := readpkg.Run(filePath, level, maxLines, lineNumbers)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Print(filtered)
+	trackSilent("read "+filePath, raw, filtered)
+}
+
 func printHelp() {
 	fmt.Printf(`chop %s — CLI output compressor for AI coding assistants
 
@@ -348,6 +397,7 @@ Subcommands:
   init <bash|zsh|fish>        Output shell integration code
   init --global               Install Claude Code hook (~/.claude/settings.json)
   init --uninstall            Remove Claude Code hook
+  read <file> [flags]         Read file with language-aware compression
   capture <command> [args...] Run command and save raw + filtered output
   discover                    Scan Claude Code logs for missed chop opportunities
   hook-audit                  Show last 20 hook rewrite log entries
@@ -363,6 +413,11 @@ Shell integration:
 Claude Code integration:
   chop init --global          Register PreToolUse hook for Claude Code
   chop init --uninstall       Remove the hook
+
+Read flags:
+  --aggressive, -a            Strip all comments, blanks, and imports
+  --lines N, -l N             Limit output to N lines (smart truncation)
+  -n, --line-numbers          Prepend line numbers
 
 Config:
   %s
