@@ -67,9 +67,41 @@ func TestGenerateInitFish(t *testing.T) {
 }
 
 func TestGenerateInitUnsupported(t *testing.T) {
-	out := GenerateInit("powershell")
+	out := GenerateInit("tcsh")
 	if !strings.Contains(out, "unsupported shell") {
 		t.Error("unsupported shell should produce error message")
+	}
+}
+
+func TestGenerateInitPowerShell(t *testing.T) {
+	out := GenerateInit("powershell")
+
+	mustContain := []string{
+		"function git { chop git @args }",
+		"function docker { chop docker @args }",
+		"function kubectl { chop kubectl @args }",
+		"function npm { chop npm @args }",
+		"function unchop {",
+	}
+
+	for _, s := range mustContain {
+		if !strings.Contains(out, s) {
+			t.Errorf("powershell output missing %q", s)
+		}
+	}
+
+	// Should not contain bash syntax
+	if strings.Contains(out, "\"$@\"") {
+		t.Error("powershell output should not contain bash-style \"$@\"")
+	}
+}
+
+func TestGenerateInitPwsh(t *testing.T) {
+	// pwsh should produce the same output as powershell
+	ps := GenerateInit("powershell")
+	pwsh := GenerateInit("pwsh")
+	if ps != pwsh {
+		t.Error("powershell and pwsh output should be identical")
 	}
 }
 

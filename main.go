@@ -58,7 +58,7 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <bash|zsh|fish|--global|--uninstall>")
+			fmt.Fprintln(os.Stderr, "usage: chop init <bash|zsh|fish|powershell|--global|--uninstall>")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -406,9 +406,10 @@ Subcommands:
   version                     Show version
 
 Shell integration:
-  eval "$(chop init bash)"    Add to ~/.bashrc to auto-wrap all commands
-  eval "$(chop init zsh)"     Add to ~/.zshrc
-  chop init fish | source     Add to fish config
+  eval "$(chop init bash)"                  Add to ~/.bashrc
+  eval "$(chop init zsh)"                   Add to ~/.zshrc
+  chop init fish | source                   Add to fish config
+  chop init powershell | Invoke-Expression  Add to $PROFILE
 
 Claude Code integration:
   chop init --global          Register PreToolUse hook for Claude Code

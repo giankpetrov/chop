@@ -66,6 +66,10 @@ echo 'eval "$(chop init zsh)"' >> ~/.zshrc
 
 # fish
 chop init fish | source  # add to fish config
+
+# powershell
+chop init powershell | Invoke-Expression  # run in current session
+Add-Content $PROFILE (chop init powershell)  # permanent setup
 ```
 
 ### Claude Code hook

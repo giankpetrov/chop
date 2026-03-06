@@ -25,15 +25,17 @@ var commands = []string{
 }
 
 // GenerateInit returns shell code that wraps supported commands through chop.
-// Supported shell types: "bash", "zsh", "fish".
+// Supported shell types: "bash", "zsh", "fish", "powershell"/"pwsh".
 func GenerateInit(shellType string) string {
 	switch shellType {
 	case "bash", "zsh":
 		return generateBashZsh()
 	case "fish":
 		return generateFish()
+	case "powershell", "pwsh":
+		return generatePowerShell()
 	default:
-		return fmt.Sprintf("echo \"chop: unsupported shell %q (use bash, zsh, or fish)\" >&2\n", shellType)
+		return fmt.Sprintf("echo \"chop: unsupported shell %q (use bash, zsh, fish, or powershell)\" >&2\n", shellType)
 	}
 }
 
@@ -87,6 +89,41 @@ func generateFish() string {
 	b.WriteString("function unchop; command $argv; end\n")
 
 	return b.String()
+}
+
+func generatePowerShell() string {
+	var b strings.Builder
+
+	b.WriteString("# chop shell integration for PowerShell\n")
+	b.WriteString("# Add to your $PROFILE:\n")
+	b.WriteString("#   chop init powershell | Invoke-Expression\n")
+	b.WriteString("# Or for permanent setup:\n")
+	b.WriteString("#   Add-Content $PROFILE (chop init powershell)\n")
+	b.WriteString("#\n")
+	b.WriteString("# Use 'unchop <command> [args...]' to bypass chop and run the original command.\n\n")
+
+	for _, cmd := range commands {
+		if !isValidPowerShellFunctionName(cmd) {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("function %s { chop %s @args }\n", cmd, cmd))
+	}
+
+	b.WriteString("\n# Bypass: run the original command without chop\n")
+	b.WriteString("function unchop { & $args[0] $args[1..($args.Count-1)] }\n")
+
+	return b.String()
+}
+
+// isValidPowerShellFunctionName returns true if the name can be used as a PowerShell function.
+// PowerShell function names can't start with digits and ++ is problematic.
+func isValidPowerShellFunctionName(name string) bool {
+	for _, ch := range name {
+		if ch == '+' {
+			return false
+		}
+	}
+	return true
 }
 
 // isValidBashFunctionName returns true if the name can be used as a bash function.
