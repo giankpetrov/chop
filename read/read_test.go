@@ -358,6 +358,53 @@ func TestRunFileNotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// TestRunStdin
+// ---------------------------------------------------------------------------
+
+func TestRunStdin(t *testing.T) {
+	input := "# comment\nimport os\n\nprint('hello')\n"
+
+	raw, filtered := RunStdin(input, ".py", "minimal", 0, false)
+	if raw != input {
+		t.Error("expected raw to match input")
+	}
+	if strings.Contains(filtered, "# comment") {
+		t.Errorf("expected comment removed from stdin, got:\n%s", filtered)
+	}
+	if !strings.Contains(filtered, "import os") {
+		t.Errorf("expected import preserved, got:\n%s", filtered)
+	}
+}
+
+func TestRunStdinAggressive(t *testing.T) {
+	input := "// comment\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"
+
+	_, filtered := RunStdin(input, ".go", "aggressive", 0, false)
+	if strings.Contains(filtered, "// comment") {
+		t.Error("expected comment removed in aggressive stdin mode")
+	}
+	if strings.Contains(filtered, "import") {
+		t.Error("expected import removed in aggressive stdin mode")
+	}
+	if !strings.Contains(filtered, "func main()") {
+		t.Errorf("expected code preserved, got:\n%s", filtered)
+	}
+}
+
+func TestRunStdinNoExt(t *testing.T) {
+	// Without extension hint, uses Unknown language (// and /* */ comments)
+	input := "// comment\ncode here\n"
+
+	_, filtered := RunStdin(input, "", "minimal", 0, false)
+	if strings.Contains(filtered, "// comment") {
+		t.Error("expected comment removed even without ext hint")
+	}
+	if !strings.Contains(filtered, "code here") {
+		t.Error("expected code preserved")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // TestFilterMinimalRust
 // ---------------------------------------------------------------------------
 

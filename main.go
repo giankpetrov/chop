@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -345,6 +346,7 @@ func runRead(args []string) {
 	level := "minimal"
 	maxLines := 0
 	lineNumbers := false
+	ext := ""
 	var filePath string
 
 	for i := 0; i < len(args); i++ {
@@ -364,6 +366,16 @@ func runRead(args []string) {
 			}
 		case "-n", "--line-numbers":
 			lineNumbers = true
+		case "--ext":
+			if i+1 < len(args) {
+				i++
+				ext = args[i]
+				if ext != "" && ext[0] != '.' {
+					ext = "." + ext
+				}
+			}
+		case "-":
+			filePath = "-"
 		default:
 			if filePath == "" {
 				filePath = args[i]
@@ -372,8 +384,20 @@ func runRead(args []string) {
 	}
 
 	if filePath == "" {
-		fmt.Fprintln(os.Stderr, "usage: chop read <file> [--aggressive] [--lines N] [-n]")
+		fmt.Fprintln(os.Stderr, "usage: chop read <file|-|--ext .go> [--aggressive] [--lines N] [-n]")
 		os.Exit(1)
+	}
+
+	if filePath == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to read stdin: %v\n", err)
+			os.Exit(1)
+		}
+		raw, filtered := readpkg.RunStdin(string(data), ext, level, maxLines, lineNumbers)
+		fmt.Print(filtered)
+		trackSilent("read -", raw, filtered)
+		return
 	}
 
 	raw, filtered, err := readpkg.Run(filePath, level, maxLines, lineNumbers)
@@ -401,7 +425,7 @@ Subcommands:
   init <bash|zsh|fish>        Output shell integration code
   init --global               Install Claude Code hook (~/.claude/settings.json)
   init --uninstall            Remove Claude Code hook
-  read <file> [flags]         Read file with language-aware compression
+  read <file|-> [flags]       Read file or stdin with language-aware compression
   capture <command> [args...] Run command and save raw + filtered output
   discover                    Scan Claude Code logs for missed chop opportunities
   hook-audit                  Show last 20 hook rewrite log entries
@@ -421,6 +445,8 @@ Claude Code integration:
   chop init --uninstall       Remove the hook
 
 Read flags:
+  -                           Read from stdin (use --ext for language hint)
+  --ext .go                   Language hint for stdin (e.g., .go, .py, .ts)
   --aggressive, -a            Strip all comments, blanks, and imports
   --lines N, -l N             Limit output to N lines (smart truncation)
   -n, --line-numbers          Prepend line numbers

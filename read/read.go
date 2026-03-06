@@ -330,7 +330,21 @@ func Run(filePath string, level string, maxLines int, lineNumbers bool) (raw str
 	}
 
 	raw = string(data)
+	filtered = applyFilter(raw, lang, level, maxLines, lineNumbers)
+	return raw, filtered, nil
+}
 
+// RunStdin reads from stdin, applies the filter, and returns the result.
+// ext is the file extension hint (e.g., ".go") for language detection.
+func RunStdin(content string, ext string, level string, maxLines int, lineNumbers bool) (raw string, filtered string) {
+	lang := DetectLanguage(ext)
+	raw = content
+	filtered = applyFilter(raw, lang, level, maxLines, lineNumbers)
+	return raw, filtered
+}
+
+func applyFilter(raw string, lang Language, level string, maxLines int, lineNumbers bool) string {
+	var filtered string
 	switch strings.ToLower(level) {
 	case "aggressive":
 		filtered = FilterAggressive(raw, lang)
@@ -338,17 +352,15 @@ func Run(filePath string, level string, maxLines int, lineNumbers bool) (raw str
 		filtered = FilterMinimal(raw, lang)
 	}
 
-	// Smart truncation
 	if maxLines > 0 {
 		filtered = truncate(filtered, maxLines)
 	}
 
-	// Line numbers
 	if lineNumbers {
 		filtered = addLineNumbers(filtered)
 	}
 
-	return raw, filtered, nil
+	return filtered
 }
 
 // truncate keeps the first half and last half of lines, omitting the middle.

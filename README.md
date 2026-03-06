@@ -1,13 +1,55 @@
 # chop
 
-CLI output compressor for AI coding agents.
+**CLI output compressor for AI coding agents.**
 
-Reduces token consumption by 50-98% by filtering and compressing CLI output.
-Works with **any AI coding agent** — Claude Code, Cursor, Copilot, Aider, or
-any tool that runs shell commands and reads the output.
+AI coding agents waste 50-90% of their context window on verbose CLI output —
+build logs, test results, container listings, git diffs. **chop** compresses
+that output before the agent sees it, saving tokens and keeping conversations
+focused.
 
-Proxies any command, applies smart filtering for known tools, and auto-detects
-JSON/CSV/table/log formats for everything else.
+Works with **any AI coding agent**: Claude Code, Cursor, Copilot, Aider, Windsurf,
+or any tool that runs shell commands.
+
+## Before & After
+
+```
+# Without chop (247 tokens)
+$ git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   src/app.ts
+        modified:   src/auth/login.ts
+        modified:   config.json
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        src/utils/helpers.ts
+
+no changes added to commit (use "git add" and/or "git commit")
+
+# With chop (12 tokens — 95% savings)
+$ chop git status
+modified(3): src/app.ts, src/auth/login.ts, config.json
+untracked(1): src/utils/helpers.ts
+```
+
+```
+# Without chop (850+ tokens)
+$ docker ps
+CONTAINER ID   IMAGE                  COMMAND                  CREATED        STATUS        PORTS                    NAMES
+a1b2c3d4e5f6   nginx:1.25-alpine      "/docker-entrypoint.…"   2 hours ago    Up 2 hours    0.0.0.0:80->80/tcp       web
+f6e5d4c3b2a1   postgres:16-alpine     "docker-entrypoint.s…"   2 hours ago    Up 2 hours    0.0.0.0:5432->5432/tcp   db
+...
+
+# With chop (compact table — 70% savings)
+$ chop docker ps
+web        nginx:1.25-alpine     Up 2h    :80->80
+db         postgres:16-alpine    Up 2h    :5432->5432
+```
 
 ## Install
 
@@ -15,10 +57,17 @@ JSON/CSV/table/log formats for everything else.
 curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/install.sh | sh
 ```
 
-Or with a specific version:
+Specific version or custom directory:
 
 ```bash
-CHOP_VERSION=v0.8.0 curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/install.sh | sh
+CHOP_VERSION=v0.10.1 curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/install.sh | sh
+CHOP_INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/install.sh | sh
+```
+
+Or with Go:
+
+```bash
+go install github.com/AgusRdz/chop@latest
 ```
 
 Or build from source (requires Docker):
@@ -26,36 +75,83 @@ Or build from source (requires Docker):
 ```bash
 git clone https://github.com/AgusRdz/chop.git
 cd chop
-make test       # run tests
-make install    # build for your platform + copy to ~/bin/
+make install    # builds + copies to ~/bin/
 ```
 
-## Usage
+Update to latest:
 
 ```bash
-chop git status        # "modified(3): app.ts, login.ts, config.json"
-chop kubectl get pods  # compact table, essential columns only
-chop terraform plan    # resource summary, no attribute noise
-chop curl https://api  # JSON auto-compressed to structure + types
-chop anything          # auto-detects JSON/CSV/table/logs and compresses
+chop update
+```
+
+## Quick Start
+
+### Use directly
+
+```bash
+chop git status          # compressed git status
+chop docker ps           # compact container list
+chop npm test            # just failures and summary
+chop kubectl get pods    # essential columns only
+chop terraform plan      # resource changes, no attribute noise
+chop curl https://api.io # JSON compressed to structure + types
+chop anything            # auto-detects and compresses any output
+```
+
+### Read files with compression
+
+```bash
+chop read src/main.go              # strip comments, collapse blank lines
+chop read src/main.go -a           # aggressive: also strip imports and all blanks
+chop read src/main.go --lines 50   # smart truncation to ~50 lines
+chop read src/main.go -n           # with line numbers
+cat src/main.go | chop read - --ext .go   # from stdin with language hint
 ```
 
 ## Agent Integration
 
-chop works with any AI coding agent. Pick the integration that fits your setup:
+### Claude Code (automatic, zero-config)
 
-### Direct (any agent)
+Register a PreToolUse hook that automatically wraps every Bash command:
 
-Prefix commands with `chop` in your agent's instructions or prompt:
-
-```
-When running CLI commands, prefix with `chop` for read-only commands:
-  chop git status, chop docker ps, chop npm test
+```bash
+chop init --global       # install hook
+chop init --uninstall    # remove hook
 ```
 
-### Shell integration (any agent)
+After this, every command Claude Code runs gets compressed transparently.
+You'll see `chop git status` in the tool calls — that's the hook working.
 
-Auto-wraps all supported commands in your shell:
+Add this to your `CLAUDE.md` for best results:
+
+```markdown
+## Chop (Token Optimizer)
+
+`chop` is installed globally. It compresses CLI output to reduce token consumption.
+
+When running CLI commands via Bash, prefix with `chop` for read-only commands:
+- `chop git status`, `chop git log -10`, `chop git diff`
+- `chop docker ps`, `chop npm test`, `chop dotnet build`
+- `chop curl <url>` (auto-compresses JSON responses)
+
+Do NOT use chop for: interactive commands, pipes, redirects, or write commands
+(git commit, git push, npm init, docker run).
+```
+
+### Cursor / Copilot / Other Agents
+
+Add to your agent's rules or instructions file (`.cursorrules`, `.github/copilot-instructions.md`, etc.):
+
+```
+When running CLI commands, prefix read-only commands with `chop` to reduce output:
+  chop git status, chop docker ps, chop npm test, chop cargo build
+Do not use chop for: interactive commands, pipes, or write operations.
+```
+
+### Shell Integration (any agent, any workflow)
+
+Auto-wraps all supported commands in your shell — works with every agent
+that spawns a shell:
 
 ```bash
 # bash
@@ -65,124 +161,94 @@ echo 'eval "$(chop init bash)"' >> ~/.bashrc
 echo 'eval "$(chop init zsh)"' >> ~/.zshrc
 
 # fish
-chop init fish | source  # add to fish config
+chop init fish | source
 
-# powershell
-chop init powershell | Invoke-Expression  # run in current session
-Add-Content $PROFILE (chop init powershell)  # permanent setup
+# PowerShell
+chop init powershell | Invoke-Expression          # current session
+Add-Content $PROFILE (chop init powershell)       # permanent
 ```
 
-### Claude Code hook
+Use `unchop <command>` to bypass chop and run the original command.
 
-Automatically rewrites Bash tool calls — zero config after install:
+## Supported Commands (52+)
+
+| Category | Commands | Savings |
+|----------|----------|---------|
+| **Git** | `git` status/log/diff/branch, `gh` pr/issue/run | 50-90% |
+| **JavaScript** | `npm` install/list/test, `pnpm`, `yarn`, `bun`, `npx`, `tsc`, `eslint`, `biome` | 70-95% |
+| **Angular/Nx** | `ng` build/test/serve, `nx` build/test | 70-90% |
+| **.NET** | `dotnet` build/test | 70-90% |
+| **Rust** | `cargo` test/build/check/clippy | 70-90% |
+| **Go** | `go` test/build/vet | 75-90% |
+| **Python** | `pytest`, `pip`, `uv`, `mypy`, `ruff`, `flake8`, `pylint` | 70-90% |
+| **Java** | `mvn`, `gradle`/`gradlew` | 70-85% |
+| **Ruby** | `bundle`, `rspec`, `rubocop` | 70-90% |
+| **PHP** | `composer` install/update | 70-85% |
+| **Containers** | `docker` ps/build/images/logs/inspect/stats/etc., `docker compose` | 60-85% |
+| **Kubernetes** | `kubectl` get/describe/logs/top, `helm` | 60-85% |
+| **Infrastructure** | `terraform` plan/apply/init | 70-90% |
+| **Build** | `make`, `cmake`, `gcc`/`g++`/`clang` | 60-80% |
+| **Cloud** | `aws`, `az`, `gcloud` | 60-85% |
+| **HTTP** | `curl`, `http` (HTTPie) | 50-80% |
+| **Search** | `grep`, `rg` | 50-70% |
+| **System** | `ping`, `ps`, `ss`/`netstat`, `df`/`du` | 50-80% |
+
+Any command not listed above still gets compressed via auto-detection
+(JSON, CSV, tables, log lines).
+
+## File Reading
+
+`chop read` compresses source files by stripping comments and blank lines —
+useful when you want an AI agent to read a file with less noise:
 
 ```bash
-chop init --global       # register PreToolUse hook
-chop init --uninstall    # remove hook
+chop read src/server.go                     # strip comments, collapse blanks
+chop read src/server.go --aggressive        # also strip imports and blank lines
+chop read src/server.go --lines 100 -n      # truncate + line numbers
+cat largefile.py | chop read - --ext .py    # pipe from stdin
 ```
 
-### File reading
+**Supported languages:** Go, Rust, Python, JavaScript/TypeScript, C/C++, C#,
+Java, Ruby, Shell, HTML/XML, CSS/SCSS, SQL, YAML, Markdown.
 
-Language-aware file compression — strips comments and blank lines:
+**Filter levels:**
+- **Minimal** (default): removes comments (preserves doc comments), collapses 3+ blank lines to 1
+- **Aggressive** (`-a`): removes all comments including doc comments, all blank lines, and import blocks
 
-```bash
-chop read src/main.go              # minimal: remove comments, collapse blanks
-chop read src/main.go --aggressive # also remove imports and all blank lines
-chop read src/main.go --lines 50   # smart truncation to 50 lines
-chop read src/main.go -n           # with line numbers
-```
+## Token Tracking
 
-Supports Go, Rust, Python, JavaScript/TypeScript, C/C++, C#, Java, Ruby,
-Shell, HTML/XML, CSS/SCSS, SQL, YAML, Markdown, and more.
-
-## Supported Commands
-
-| Category | Command | Subcommands | Savings |
-|----------|---------|-------------|---------|
-| **Version Control** | `git` | status, log, diff, branch | 60-90% |
-| **Version Control** | `gh` | pr list/view/checks, issue list/view, run list/view | 50-87% |
-| **JavaScript** | `npm` | install, list, test | 70-90% |
-| **JavaScript** | `pnpm` | install, list | 70-90% |
-| **JavaScript** | `yarn` | install | 70-90% |
-| **JavaScript** | `bun` | install | 70-90% |
-| **JavaScript** | `npx` | jest, vitest, mocha | 80-95% |
-| **JavaScript** | `tsc` | (all) | 80-90% |
-| **JavaScript** | `eslint` / `biome` | (all) | 80-90% |
-| **Angular/Nx** | `ng` | build, test, serve | 70-90% |
-| **Angular/Nx** | `nx` | build, test | 70-90% |
-| **.NET** | `dotnet` | build, test | 70-90% |
-| **Rust** | `cargo` | test, build, check, clippy | 70-90% |
-| **Go** | `go` | test, build, vet | 75-90% |
-| **Python** | `pytest` | (all) | 70-90% |
-| **Python** | `pip` / `pip3` | install, list | 70-85% |
-| **Python** | `uv` | install | 70-85% |
-| **Python** | `mypy` | (all) | 70-85% |
-| **Python** | `ruff` | (all) | 70-85% |
-| **Python** | `pylint` | (all) | 70-85% |
-| **Java** | `mvn` | compile, test, package, install, clean, verify, dependency:tree | 70-85% |
-| **Java** | `gradle` / `gradlew` | build, test, dependencies, assemble, compileJava, compileKotlin, jar, war, clean | 70-85% |
-| **Ruby** | `bundle` | install | 70-85% |
-| **Ruby** | `rspec` | (all) | 70-90% |
-| **Ruby** | `rubocop` | (all) | 70-85% |
-| **PHP** | `composer` | install, update | 70-85% |
-| **Containers** | `docker` | ps, build, images, logs, inspect, stats, top, diff, history, network ls, volume ls, system df | 60-85% |
-| **Containers** | `docker compose` | ps, build, logs, images | 60-85% |
-| **Kubernetes** | `kubectl` | get, describe, logs, top, apply, delete | 60-85% |
-| **Kubernetes** | `helm` | install, list | 60-85% |
-| **Infrastructure** | `terraform` | plan, apply, init | 70-90% |
-| **Build Tools** | `make` | (all) | 60-80% |
-| **Build Tools** | `cmake` | (all) | 60-80% |
-| **Build Tools** | `gcc` / `g++` / `clang` | (all) | 60-80% |
-| **Cloud** | `aws` | s3 ls, ec2 describe-instances, logs, (generic JSON) | 60-85% |
-| **Cloud** | `az` | vm list, resource list, (generic JSON) | 60-85% |
-| **Cloud** | `gcloud` | compute instances list, (generic) | 60-85% |
-| **HTTP** | `curl` | (all) | 50-80% |
-| **HTTP** | `http` (HTTPie) | (all) | 50-80% |
-| **Search** | `grep` / `rg` | (all) | 50-70% |
-| **System** | `ping` | (all) | 50-70% |
-| **System** | `ps` | (all) | 60-80% |
-| **System** | `ss` / `netstat` | (all) | 60-80% |
-| **System** | `df` / `du` | (all) | 50-70% |
-
-## Tracking
-
-Track cumulative token savings:
+Every command is tracked in a local SQLite database:
 
 ```bash
-chop gain              # summary stats
+chop gain              # overall stats
 chop gain --history    # last 20 commands with per-command savings
 chop gain --summary    # per-command breakdown
 ```
 
-## Auto-detect
+```
+$ chop gain
+chop - token savings report
 
-Any command not in the supported list still gets compressed. chop auto-detects:
+today: 42 commands, 12,847 tokens saved
+total: 318 commands, 89,234 tokens saved (73.2% avg)
+```
 
-- **JSON** — compressed to structure + types (arrays summarized)
-- **CSV/TSV** — column headers + row count
-- **Tables** — essential columns, aligned
-- **Log lines** — deduplicated with counts, grouped by level
-
-This means `chop <anything>` works. Known commands get purpose-built filters;
-everything else gets generic compression.
-
-## Other Subcommands
+## Diagnostics
 
 ```bash
-chop config            # show config file path and contents
 chop discover          # scan Claude Code logs for missed chop opportunities
 chop hook-audit        # show last 20 hook rewrite log entries
-chop capture <cmd>     # run command and save raw + filtered output as fixtures
-chop help              # show help
-chop version           # show version
+chop hook-audit --clear
+chop config            # show config file path and contents
+chop capture <cmd>     # save raw + filtered output as test fixtures
 ```
 
 ## Configuration
 
-Config file at `~/.config/chop/config.yml`:
+`~/.config/chop/config.yml`:
 
 ```yaml
-# Save raw output for LLM re-read
+# Save raw output to temp file for LLM re-read
 tee: true
 
 # Skip filtering for specific commands
@@ -197,13 +263,10 @@ disabled:
 make test              # run tests
 make build             # build (linux, in container)
 make install           # build for your platform + install to ~/bin/
-make cross             # build all platforms
-make clean             # remove binaries
+make cross             # build all platforms (linux/darwin/windows × amd64/arm64)
 make release-patch     # tag + push next patch version
 make release-minor     # tag + push next minor version
 ```
-
-Version is injected automatically from git tags via `-ldflags`.
 
 ## License
 
