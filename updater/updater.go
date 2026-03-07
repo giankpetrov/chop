@@ -48,6 +48,18 @@ func Run(currentVersion string) {
 	}
 
 	fmt.Printf("updated to %s\n", latest)
+
+	home, err := os.UserHomeDir()
+	if err == nil {
+		oldDir := home + "/bin"
+		if strings.HasPrefix(exe, oldDir+string(os.PathSeparator)) || exe == oldDir+"/chop" {
+			fmt.Println("")
+			fmt.Println("note: chop is installed in ~/bin, which is no longer the recommended location.")
+			fmt.Println("run the migration script to move it to ~/.local/bin:")
+			fmt.Println("")
+			fmt.Println("  curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
+		}
+	}
 }
 
 func latestVersion() (string, error) {
