@@ -54,8 +54,22 @@ case ":$PATH:" in
   *":${INSTALL_DIR}:"*) ;;
   *)
     echo "NOTE: ${INSTALL_DIR} is not in your PATH."
-    echo "Add it with:"
+    echo ""
+
+    # Detect shell config file
+    SHELL_NAME="$(basename "${SHELL:-}")"
+    case "$SHELL_NAME" in
+      zsh)  SHELL_RC="$HOME/.zshrc" ;;
+      bash) SHELL_RC="${BASH_ENV:-$HOME/.bashrc}" ;;
+      *)    SHELL_RC="your shell config file" ;;
+    esac
+
+    echo "To make chop available in every new terminal, add this line to $SHELL_RC:"
+    echo ""
     echo "  export PATH=\"${INSTALL_DIR}:\$PATH\""
+    echo ""
+    echo "Then reload it with:"
+    echo "  source $SHELL_RC"
     echo ""
     ;;
 esac
