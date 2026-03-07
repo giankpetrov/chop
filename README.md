@@ -81,13 +81,7 @@ cd chop
 make install    # builds + copies to ~/bin/
 ```
 
-If the installer warns that `~/bin` is not in your PATH, add this line to your shell config (`~/.zshrc`, `~/.bashrc`, etc.):
-
-```bash
-export PATH="$HOME/bin:$PATH"
-```
-
-Then reload it:
+If `~/bin` is not in your PATH, the installer adds it automatically to `~/.zshrc` or `~/.bashrc`. Reload your shell after installing:
 
 ```bash
 source ~/.zshrc  # or ~/.bashrc
