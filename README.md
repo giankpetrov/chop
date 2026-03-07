@@ -81,10 +81,16 @@ cd chop
 make install    # builds + copies to ~/bin/
 ```
 
-If `~/bin` is not in your PATH, the installer adds it automatically to `~/.zshrc` or `~/.bashrc`. Reload your shell after installing:
+The installer places the binary in `~/.local/bin` by default. If it is not in your PATH, it is added automatically to `~/.zshrc` or `~/.bashrc`. Reload your shell after installing:
 
 ```bash
 source ~/.zshrc  # or ~/.bashrc
+```
+
+To install to a custom directory:
+
+```bash
+CHOP_INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/install.sh | sh
 ```
 
 Update to latest:
@@ -188,6 +194,33 @@ total: 318 commands, 89,234 tokens saved (73.2% avg)
 chop hook-audit        # show last 20 hook rewrite log entries
 chop hook-audit --clear
 chop config            # show config file path and contents
+```
+
+## Migrating from ~/bin
+
+Versions before v0.14.4 installed the binary to `~/bin`. Run the migration script to move it to `~/.local/bin` and update your shell config automatically:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh
+```
+
+Or manually:
+
+```bash
+mkdir -p ~/.local/bin
+mv ~/bin/chop ~/.local/bin/chop
+```
+
+Then remove `~/bin` from your shell config (`~/.zshrc` or `~/.bashrc`) and add `~/.local/bin` if it's not already there:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Reload your shell:
+
+```bash
+source ~/.zshrc  # or ~/.bashrc
 ```
 
 ## Uninstall & Reset

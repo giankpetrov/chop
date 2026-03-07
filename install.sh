@@ -2,7 +2,7 @@
 set -e
 
 REPO="AgusRdz/chop"
-INSTALL_DIR="${CHOP_INSTALL_DIR:-$HOME/bin}"
+INSTALL_DIR="${CHOP_INSTALL_DIR:-$HOME/.local/bin}"
 
 # Detect OS
 OS="$(uname -s)"
