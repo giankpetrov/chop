@@ -34,6 +34,9 @@ func main() {
 	case "--version", "version":
 		fmt.Printf("chop %s\n", version)
 		return
+	case "--post-update-check":
+		checkInstallDir()
+		return
 	case "update":
 		updater.Run(version)
 		return
@@ -343,6 +346,25 @@ func runHookAudit(args []string) {
 	}
 }
 
+
+func checkInstallDir() {
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	oldDir := filepath.Join(home, "bin")
+	if strings.HasPrefix(exe, oldDir+string(filepath.Separator)) || exe == filepath.Join(oldDir, "chop") {
+		fmt.Println("")
+		fmt.Println("note: chop is installed in ~/bin, which is no longer the recommended location.")
+		fmt.Println("run the migration script to move it to ~/.local/bin:")
+		fmt.Println("")
+		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
+	}
+}
 
 func printHelp() {
 	fmt.Printf(`chop %s — CLI output compressor for Claude Code

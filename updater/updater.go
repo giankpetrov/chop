@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -49,17 +50,13 @@ func Run(currentVersion string) {
 
 	fmt.Printf("updated to %s\n", latest)
 
-	home, err := os.UserHomeDir()
-	if err == nil {
-		oldDir := home + "/bin"
-		if strings.HasPrefix(exe, oldDir+string(os.PathSeparator)) || exe == oldDir+"/chop" {
-			fmt.Println("")
-			fmt.Println("note: chop is installed in ~/bin, which is no longer the recommended location.")
-			fmt.Println("run the migration script to move it to ~/.local/bin:")
-			fmt.Println("")
-			fmt.Println("  curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
-		}
-	}
+	// Re-exec the new binary for post-update checks.
+	// This ensures the check runs with the new version's code regardless
+	// of what version performed the update.
+	cmd := exec.Command(exe, "--post-update-check")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	_ = cmd.Run()
 }
 
 func latestVersion() (string, error) {
