@@ -1,5 +1,7 @@
 package filters
 
+import "strings"
+
 // FilterFunc takes raw command output and returns filtered output.
 type FilterFunc func(raw string) (string, error)
 
@@ -172,7 +174,37 @@ func getDockerComposeFilter(args []string) FilterFunc {
 	}
 }
 
+// skipGitGlobalFlags advances past known git global flags to find the subcommand.
+// Handles cases like: git -C /path status, git --no-pager log, git -c key=val diff
+func skipGitGlobalFlags(args []string) []string {
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		// Flags that consume the next argument as a value
+		if arg == "-C" || arg == "--git-dir" || arg == "--work-tree" || arg == "-c" || arg == "--exec-path" {
+			i += 2
+			continue
+		}
+		// Flags with embedded value (--git-dir=path, --work-tree=path)
+		if strings.HasPrefix(arg, "--git-dir=") || strings.HasPrefix(arg, "--work-tree=") || strings.HasPrefix(arg, "-c=") {
+			i++
+			continue
+		}
+		// Boolean flags
+		if arg == "--no-pager" || arg == "--bare" || arg == "--no-replace-objects" || arg == "-p" || arg == "--paginate" {
+			i++
+			continue
+		}
+		break
+	}
+	return args[i:]
+}
+
 func getGitFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	args = skipGitGlobalFlags(args)
 	if len(args) == 0 {
 		return nil
 	}
