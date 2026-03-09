@@ -71,6 +71,9 @@ func main() {
 	case "doctor":
 		runDoctor()
 		return
+	case "local":
+		runLocal(os.Args[2:])
+		return
 	case "init":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--uninstall|--status>")
@@ -96,10 +99,12 @@ func main() {
 		return
 	}
 
-	cfg := config.Load()
-
 	command := os.Args[1]
 	args := os.Args[2:]
+
+	// Load config: global + local overlay from cwd
+	cwd, _ := os.Getwd()
+	cfg := config.LoadWithLocal(cwd)
 
 	cmd := exec.Command(command, args...)
 	cmd.Stdin = os.Stdin
@@ -122,8 +127,12 @@ func main() {
 	}
 
 	// Skip filtering if command is disabled in config
+	subCmd := ""
+	if len(args) > 0 {
+		subCmd = args[0]
+	}
 	var finalOutput string
-	if cfg.IsDisabled(command) {
+	if cfg.IsDisabled(command, subCmd) {
 		finalOutput = raw
 	} else {
 		filter := filters.Get(command, args)
@@ -350,6 +359,167 @@ func runHookAudit(args []string) {
 	}
 }
 
+const localConfigFile = ".chop.yml"
+
+func runLocal(args []string) {
+	if len(args) == 0 {
+		showLocalConfig()
+		return
+	}
+
+	switch args[0] {
+	case "add":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop local add <command>")
+			os.Exit(1)
+		}
+		localAdd(args[1:])
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop local remove <command>")
+			os.Exit(1)
+		}
+		localRemove(args[1:])
+	case "clear":
+		localClear()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop local [add|remove|clear]\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func showLocalConfig() {
+	data, err := os.ReadFile(localConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("no local config (.chop.yml)")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "chop: failed to read %s: %v\n", localConfigFile, err)
+		os.Exit(1)
+	}
+	content := strings.TrimSpace(string(data))
+	if content == "" {
+		fmt.Println("local config is empty")
+	} else {
+		fmt.Println(content)
+	}
+}
+
+func localAdd(commands []string) {
+	cfg := config.LoadFrom(localConfigFile)
+
+	for _, cmd := range commands {
+		// Skip duplicates
+		found := false
+		for _, d := range cfg.Disabled {
+			if strings.EqualFold(d, cmd) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cfg.Disabled = append(cfg.Disabled, cmd)
+		}
+	}
+
+	writeLocalConfig(cfg.Disabled)
+	ensureGitignore()
+
+	for _, cmd := range commands {
+		fmt.Printf("disabled: %s\n", cmd)
+	}
+}
+
+func localRemove(commands []string) {
+	cfg := config.LoadFrom(localConfigFile)
+
+	for _, cmd := range commands {
+		for i, d := range cfg.Disabled {
+			if strings.EqualFold(d, cmd) {
+				cfg.Disabled = append(cfg.Disabled[:i], cfg.Disabled[i+1:]...)
+				break
+			}
+		}
+	}
+
+	if len(cfg.Disabled) == 0 {
+		localClear()
+		return
+	}
+
+	writeLocalConfig(cfg.Disabled)
+	for _, cmd := range commands {
+		fmt.Printf("enabled: %s\n", cmd)
+	}
+}
+
+func localClear() {
+	if err := os.Remove(localConfigFile); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("no local config to clear")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "chop: failed to remove %s: %v\n", localConfigFile, err)
+		os.Exit(1)
+	}
+	fmt.Println("local config removed")
+}
+
+func writeLocalConfig(disabled []string) {
+	var b strings.Builder
+	b.WriteString("disabled: [")
+	for i, d := range disabled {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(fmt.Sprintf("%q", d))
+	}
+	b.WriteString("]\n")
+
+	if err := os.WriteFile(localConfigFile, []byte(b.String()), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", localConfigFile, err)
+		os.Exit(1)
+	}
+}
+
+func ensureGitignore() {
+	const gitignorePath = ".gitignore"
+	entries := []string{localConfigFile}
+
+	data, _ := os.ReadFile(gitignorePath)
+	content := string(data)
+
+	var toAdd []string
+	for _, entry := range entries {
+		if !strings.Contains(content, entry) {
+			toAdd = append(toAdd, entry)
+		}
+	}
+
+	if len(toAdd) == 0 {
+		return
+	}
+
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return // silent — don't break the command for .gitignore issues
+	}
+	defer f.Close()
+
+	// Add spacing before the chop section
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Fprintln(f)
+	}
+	if len(content) > 0 {
+		fmt.Fprintln(f)
+	}
+	fmt.Fprintln(f, "# chop")
+	for _, entry := range toAdd {
+		fmt.Fprintln(f, entry)
+	}
+	fmt.Printf("added %s to .gitignore\n", strings.Join(toAdd, ", "))
+}
 
 func checkInstallDir() {
 	exe, err := os.Executable()
@@ -464,6 +634,10 @@ Subcommands:
   uninstall                   Remove everything: hook, data, config, binary
   uninstall --keep-data       Uninstall but preserve tracking history
   reset                       Clear data (tracking, audit log) — keep installation
+  local                       Show local project config (.chop.yml)
+  local add "git diff"        Disable a command in this project
+  local remove "git diff"     Re-enable a command in this project
+  local clear                 Remove local config
   doctor                      Check and fix common issues (hook path, install location)
   update                      Update to the latest version
   --post-update-check         Check install location after an update (called automatically by update)
@@ -476,7 +650,10 @@ Claude Code integration:
   chop init --status          Check hook installation status
 
 Config (%s):
-  disabled: [cmd1, cmd2]      Skip filtering, return full output for these commands
+  disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
+
+Local config (.chop.yml in project dir — managed via chop local):
+  disabled: ["git diff"]        Overrides global disabled list for this project
 
 Examples:
   chop git status             Compressed git status

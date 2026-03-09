@@ -26,10 +26,17 @@ GOARCH ?= $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,amd64)
 EXT := $(if $(filter windows,$(GOOS)),.exe,)
 BINARY := bin/chop$(EXT)
 
+ifeq ($(GOOS),windows)
+  INSTALL_DIR ?= $(LOCALAPPDATA)/Programs/chop
+else
+  INSTALL_DIR ?= $(HOME)/.local/bin
+endif
+
 install:
 	docker compose run --rm dev sh -c "CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags='$(LDFLAGS)' -o $(BINARY) ."
-	cp $(BINARY) $(HOME)/bin/chop$(EXT)
-	@echo "installed chop $(VERSION) ($(GOOS)/$(GOARCH)) to $(HOME)/bin/chop$(EXT)"
+	@mkdir -p "$(INSTALL_DIR)"
+	cp $(BINARY) "$(INSTALL_DIR)/chop$(EXT)"
+	@echo "installed chop $(VERSION) ($(GOOS)/$(GOARCH)) to $(INSTALL_DIR)/chop$(EXT)"
 
 # --- Release helpers ---
 # Usage: make release-patch  (v0.3.0 -> v0.3.1)

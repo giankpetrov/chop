@@ -42,14 +42,44 @@ func LoadFrom(path string) Config {
 	return parse(string(data))
 }
 
-// IsDisabled returns true if the given command is in the disabled list.
-func (c Config) IsDisabled(command string) bool {
+// IsDisabled returns true if the given base command (and optional subcommand)
+// matches an entry in the disabled list.
+//
+// Matching rules:
+//   - "git" disables all git subcommands
+//   - "git diff" disables only "git diff"
+//
+// Call with: IsDisabled("git", "diff") or IsDisabled("git")
+func (c Config) IsDisabled(command string, args ...string) bool {
+	fullCmd := command
+	if len(args) > 0 && args[0] != "" {
+		fullCmd = command + " " + args[0]
+	}
 	for _, d := range c.Disabled {
-		if strings.EqualFold(d, command) {
+		// Exact match on full "cmd subcmd" or base "cmd"
+		if strings.EqualFold(d, fullCmd) || strings.EqualFold(d, command) {
 			return true
 		}
 	}
 	return false
+}
+
+// LoadWithLocal loads the global config, then overlays a local .chop.yml
+// from the given directory (if it exists). The local disabled list fully
+// replaces the global one.
+func LoadWithLocal(cwd string) Config {
+	cfg := Load()
+	if cwd == "" {
+		return cfg
+	}
+	localPath := filepath.Join(cwd, ".chop.yml")
+	if _, err := os.Stat(localPath); err != nil {
+		return cfg
+	}
+	local := LoadFrom(localPath)
+	// Local disabled list overrides global entirely
+	cfg.Disabled = local.Disabled
+	return cfg
 }
 
 // parse does simple line-by-line parsing of the config YAML.

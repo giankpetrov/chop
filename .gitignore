@@ -4,3 +4,6 @@ bin/
 .claude/
 nul
 tests/fixtures/
+
+# chop
+.chop.yml

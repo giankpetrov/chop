@@ -212,9 +212,11 @@ chop - token savings report
 ## Diagnostics
 
 ```bash
+chop doctor            # check and fix common issues
 chop hook-audit        # show last 20 hook rewrite log entries
 chop hook-audit --clear
-chop config            # show config file path and contents
+chop config            # show global config file path and contents
+chop local             # show local project config
 ```
 
 ## Migrating from ~/bin
@@ -269,18 +271,44 @@ chop reset                    # clear tracking data and audit log, keep installa
 
 ## Configuration
 
+### Global config
+
 `~/.config/chop/config.yml`:
 
 ```yaml
-# Skip filtering — these commands return full uncompressed output
+# Skip filtering — return full uncompressed output
 disabled:
-  - curl
-  - grep
+  - curl                # disables all curl commands
+  - "git diff"          # disables only git diff (git status still compressed)
+  - "git show"          # disables only git show
 ```
 
-Commands in the `disabled` list bypass all chop filters and return raw output.
-Useful when you need the full output for a specific tool (e.g., `curl` responses
-you want to parse, or `grep` results you don't want summarized).
+Entries can be a base command (disables all subcommands) or `"command subcommand"` for granular control.
+
+### Local config (per-project)
+
+Manage per-project overrides with `chop local`:
+
+```bash
+chop local                      # show current local config
+chop local add "git diff"       # disable git diff in this project
+chop local add "docker ps"      # add another entry
+chop local remove "git diff"    # re-enable git diff
+chop local clear                # remove local config entirely
+```
+
+The first `chop local add` creates a `.chop.yml` file and adds it to `.gitignore` automatically.
+
+When a local `.chop.yml` exists, its `disabled` list **replaces** the global one entirely. This lets you narrow down or expand what's disabled per project.
+
+You can also create `.chop.yml` manually:
+
+```yaml
+# .chop.yml — overrides global config for this project
+disabled:
+  - "git diff"
+```
+
 
 ## Development
 

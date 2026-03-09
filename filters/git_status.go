@@ -5,6 +5,15 @@ import (
 	"strings"
 )
 
+type gitSection int
+
+const (
+	sectionNone gitSection = iota
+	sectionStaged
+	sectionUnstaged
+	sectionUntracked
+)
+
 func filterGitStatus(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -16,34 +25,57 @@ func filterGitStatus(raw string) (string, error) {
 
 	lines := strings.Split(trimmed, "\n")
 
-	var staged, modified, untracked []string
+	var staged, unstaged, untracked []string
+	section := sectionNone
 
 	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(trimmed, "new file:"):
-			staged = append(staged, strings.TrimPrefix(trimmed, "new file:"))
-		case strings.HasPrefix(trimmed, "modified:"):
-			modified = append(modified, strings.TrimSpace(strings.TrimPrefix(trimmed, "modified:")))
-		case strings.HasPrefix(trimmed, "deleted:"):
-			modified = append(modified, strings.TrimSpace(strings.TrimPrefix(trimmed, "deleted:"))+" (deleted)")
-		case strings.HasPrefix(trimmed, "renamed:"):
-			modified = append(modified, strings.TrimSpace(strings.TrimPrefix(trimmed, "renamed:")))
-		case strings.HasPrefix(line, "??"):
-			// Short format untracked
-			untracked = append(untracked, strings.TrimSpace(line[2:]))
-		case strings.HasPrefix(line, "\t") && !strings.Contains(line, ":"):
-			// Untracked file in long format
-			untracked = append(untracked, strings.TrimSpace(line))
+		trimmedLine := strings.TrimSpace(line)
+
+		// Detect section headers
+		if strings.HasPrefix(trimmedLine, "Changes to be committed") {
+			section = sectionStaged
+			continue
+		}
+		if strings.HasPrefix(trimmedLine, "Changes not staged for commit") {
+			section = sectionUnstaged
+			continue
+		}
+		if strings.HasPrefix(trimmedLine, "Untracked files") {
+			section = sectionUntracked
+			continue
+		}
+
+		// Skip hint lines and empty lines
+		if strings.HasPrefix(trimmedLine, "(use ") || trimmedLine == "" ||
+			strings.HasPrefix(trimmedLine, "On branch") ||
+			strings.HasPrefix(trimmedLine, "Your branch") ||
+			strings.HasPrefix(trimmedLine, "no changes added") ||
+			strings.HasPrefix(trimmedLine, "nothing to commit") {
+			continue
+		}
+
+		switch section {
+		case sectionStaged:
+			if f := parseStatusFile(trimmedLine); f != "" {
+				staged = append(staged, f)
+			}
+		case sectionUnstaged:
+			if f := parseStatusFile(trimmedLine); f != "" {
+				unstaged = append(unstaged, f)
+			}
+		case sectionUntracked:
+			// Untracked files are just indented names (no prefix like "modified:")
+			if strings.HasPrefix(line, "\t") || strings.HasPrefix(line, "  ") {
+				untracked = append(untracked, trimmedLine)
+			}
 		}
 	}
 
 	// Detect clean working tree
-	if len(staged) == 0 && len(modified) == 0 && len(untracked) == 0 {
+	if len(staged) == 0 && len(unstaged) == 0 && len(untracked) == 0 {
 		if strings.Contains(raw, "nothing to commit") {
 			return "clean", nil
 		}
-		// Could not parse — fallback to raw
 		return raw, nil
 	}
 
@@ -52,8 +84,8 @@ func filterGitStatus(raw string) (string, error) {
 	if len(staged) > 0 {
 		fmt.Fprintf(&out, "staged(%d): %s\n", len(staged), strings.Join(staged, ", "))
 	}
-	if len(modified) > 0 {
-		fmt.Fprintf(&out, "modified(%d): %s\n", len(modified), strings.Join(modified, ", "))
+	if len(unstaged) > 0 {
+		fmt.Fprintf(&out, "unstaged(%d): %s\n", len(unstaged), strings.Join(unstaged, ", "))
 	}
 	if len(untracked) > 0 {
 		fmt.Fprintf(&out, "untracked(%d): %s\n", len(untracked), strings.Join(untracked, ", "))
@@ -61,4 +93,23 @@ func filterGitStatus(raw string) (string, error) {
 
 	result := strings.TrimSpace(out.String())
 	return outputSanityCheck(raw, result), nil
+}
+
+// parseStatusFile extracts the filename from a git status line like
+// "modified:   src/app.ts" or "new file:   README.md"
+func parseStatusFile(line string) string {
+	prefixes := []string{"new file:", "modified:", "deleted:", "renamed:", "copied:", "typechange:"}
+	for _, p := range prefixes {
+		if strings.HasPrefix(line, p) {
+			name := strings.TrimSpace(strings.TrimPrefix(line, p))
+			if p == "deleted:" {
+				return name + " (deleted)"
+			}
+			if p == "new file:" {
+				return name + " (new)"
+			}
+			return name
+		}
+	}
+	return ""
 }
