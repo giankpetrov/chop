@@ -68,6 +68,9 @@ func main() {
 	case "reset":
 		cleanup.Reset()
 		return
+	case "doctor":
+		runDoctor()
+		return
 	case "init":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--uninstall|--status>")
@@ -377,6 +380,70 @@ func checkInstallDir() {
 	}
 }
 
+func runDoctor() {
+	issues := 0
+
+	// 1. Check if hook is installed
+	installed, _ := hooks.IsInstalled()
+	if !installed {
+		fmt.Println("[!] hook is not installed")
+		fmt.Println("    fix: chop init --global")
+		issues++
+	} else {
+		// 2. Check if hook path matches current binary
+		hookCmd := hooks.GetHookCommand()
+		expectedCmd, err := buildExpectedHookCmd()
+		if err == nil && hookCmd != expectedCmd {
+			fmt.Println("[!] hook points to wrong binary")
+			fmt.Printf("    current: %s\n", hookCmd)
+			fmt.Printf("    expected: %s\n", expectedCmd)
+			fmt.Println("    fixing...")
+			hooks.Install()
+			issues++
+		} else {
+			fmt.Println("[ok] hook is installed and path is correct")
+		}
+	}
+
+	// 3. Check if binary is in legacy ~/bin
+	exe, err := os.Executable()
+	if err == nil {
+		exe, _ = filepath.EvalSymlinks(exe)
+		home, herr := os.UserHomeDir()
+		if herr == nil {
+			oldDir := filepath.Join(home, "bin")
+			if strings.HasPrefix(exe, oldDir+string(filepath.Separator)) {
+				fmt.Println("[!] binary is in legacy ~/bin location")
+				if runtime.GOOS == "windows" {
+					fmt.Println("    fix: irm https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.ps1 | iex")
+				} else {
+					fmt.Println("    fix: curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
+				}
+				issues++
+			}
+		}
+	}
+
+	if issues == 0 {
+		fmt.Println("\nall good!")
+	} else {
+		fmt.Printf("\n%d issue(s) found\n", issues)
+	}
+}
+
+func buildExpectedHookCmd() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return "", err
+	}
+	exe = strings.ReplaceAll(exe, "\\", "/")
+	return fmt.Sprintf(`"%s" hook`, exe), nil
+}
+
 func printHelp() {
 	fmt.Printf(`chop %s — CLI output compressor for Claude Code
 
@@ -397,6 +464,7 @@ Subcommands:
   uninstall                   Remove everything: hook, data, config, binary
   uninstall --keep-data       Uninstall but preserve tracking history
   reset                       Clear data (tracking, audit log) — keep installation
+  doctor                      Check and fix common issues (hook path, install location)
   update                      Update to the latest version
   --post-update-check         Check install location after an update (called automatically by update)
   help                        Show this help

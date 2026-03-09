@@ -102,6 +102,65 @@ func IsInstalled() (bool, string) {
 	return false, settingsPath
 }
 
+// GetHookCommand returns the command string currently registered in the hook, or "" if not found.
+func GetHookCommand() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	settings, err := readSettings(settingsPath)
+	if err != nil {
+		return ""
+	}
+
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		return ""
+	}
+	hooksMap, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	preToolUseRaw, ok := hooksMap["PreToolUse"]
+	if !ok {
+		return ""
+	}
+	preToolUse, ok := preToolUseRaw.([]interface{})
+	if !ok {
+		return ""
+	}
+
+	for _, entry := range preToolUse {
+		m, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if matcher, _ := m["matcher"].(string); matcher != "Bash" {
+			continue
+		}
+		hooksArrayRaw, ok := m["hooks"]
+		if !ok {
+			continue
+		}
+		hooksArray, ok := hooksArrayRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, h := range hooksArray {
+			hMap, ok := h.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if isChopHook(hMap) {
+				cmd, _ := hMap["command"].(string)
+				return cmd
+			}
+		}
+	}
+	return ""
+}
+
 func chopBinaryPath() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
