@@ -14,12 +14,18 @@ import (
 
 // Stats holds aggregate token savings statistics.
 type Stats struct {
-	TotalCommands    int
-	TotalRawTokens   int
-	TotalSavedTokens int
+	TotalCommands     int
+	TotalRawTokens    int
+	TotalSavedTokens  int
 	OverallSavingsPct float64
-	TodayCommands    int
-	TodaySavedTokens int
+	TodayCommands     int
+	TodaySavedTokens  int
+	WeekCommands      int
+	WeekSavedTokens   int
+	MonthCommands     int
+	MonthSavedTokens  int
+	YearCommands      int
+	YearSavedTokens   int
 }
 
 // Record holds a single tracking entry.
@@ -121,6 +127,33 @@ func GetStats() (Stats, error) {
 		return Stats{}, err
 	}
 
+	weekAgo := time.Now().UTC().AddDate(0, 0, -7).Format("2006-01-02 15:04:05")
+	row = db.QueryRow(
+		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
+		weekAgo,
+	)
+	if err := row.Scan(&s.WeekCommands, &s.WeekSavedTokens); err != nil {
+		return Stats{}, err
+	}
+
+	monthAgo := time.Now().UTC().AddDate(0, -1, 0).Format("2006-01-02 15:04:05")
+	row = db.QueryRow(
+		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
+		monthAgo,
+	)
+	if err := row.Scan(&s.MonthCommands, &s.MonthSavedTokens); err != nil {
+		return Stats{}, err
+	}
+
+	yearAgo := time.Now().UTC().AddDate(-1, 0, 0).Format("2006-01-02 15:04:05")
+	row = db.QueryRow(
+		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
+		yearAgo,
+	)
+	if err := row.Scan(&s.YearCommands, &s.YearSavedTokens); err != nil {
+		return Stats{}, err
+	}
+
 	return s, nil
 }
 
@@ -216,11 +249,17 @@ func CountTokens(s string) int {
 func FormatGain(s Stats) string {
 	return fmt.Sprintf(`chop - token savings report
 
-today: %d commands, %s tokens saved
-total: %d commands, %s tokens saved (%.1f%% avg)
+  today: %d commands, %s tokens saved
+  week:  %d commands, %s tokens saved
+  month: %d commands, %s tokens saved
+  year:  %d commands, %s tokens saved
+  total: %d commands, %s tokens saved (%.1f%% avg)
 
 run 'chop gain --history' for command history`,
 		s.TodayCommands, formatNum(s.TodaySavedTokens),
+		s.WeekCommands, formatNum(s.WeekSavedTokens),
+		s.MonthCommands, formatNum(s.MonthSavedTokens),
+		s.YearCommands, formatNum(s.YearSavedTokens),
 		s.TotalCommands, formatNum(s.TotalSavedTokens), s.OverallSavingsPct,
 	)
 }

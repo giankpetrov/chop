@@ -2,7 +2,6 @@
 set -e
 
 REPO="AgusRdz/chop"
-INSTALL_DIR="${CHOP_INSTALL_DIR:-$HOME/.local/bin}"
 
 # Detect OS
 OS="$(uname -s)"
@@ -12,6 +11,17 @@ case "$OS" in
   MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
   *) echo "unsupported OS: $OS" >&2; exit 1 ;;
 esac
+
+# Set default install dir (Windows uses AppData, Unix uses ~/.local/bin)
+if [ -z "$CHOP_INSTALL_DIR" ]; then
+  if [ "$OS" = "windows" ]; then
+    INSTALL_DIR="$(cygpath "$LOCALAPPDATA/Programs/chop" 2>/dev/null || echo "$HOME/AppData/Local/Programs/chop")"
+  else
+    INSTALL_DIR="$HOME/.local/bin"
+  fi
+else
+  INSTALL_DIR="$CHOP_INSTALL_DIR"
+fi
 
 # Detect architecture
 ARCH="$(uname -m)"

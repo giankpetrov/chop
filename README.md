@@ -189,6 +189,7 @@ Any command not listed above still gets compressed via auto-detection
 
 ## Token Tracking
 
+Less tokens wasted on noise, more tokens spent on productive work.
 Every command is tracked in a local SQLite database:
 
 ```bash
@@ -201,8 +202,11 @@ chop gain --summary    # per-command breakdown
 $ chop gain
 chop - token savings report
 
-today: 42 commands, 12,847 tokens saved
-total: 318 commands, 89,234 tokens saved (73.2% avg)
+  today: 42 commands, 12,847 tokens saved
+  week:  187 commands, 52,340 tokens saved
+  month: 318 commands, 89,234 tokens saved
+  year:  1,203 commands, 456,789 tokens saved
+  total: 1,203 commands, 456,789 tokens saved (73.2% avg)
 ```
 
 ## Diagnostics

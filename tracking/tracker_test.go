@@ -206,12 +206,18 @@ func TestCountTokens(t *testing.T) {
 
 func TestFormatGain(t *testing.T) {
 	s := Stats{
-		TotalCommands:    1203,
-		TotalRawTokens:   500000,
-		TotalSavedTokens: 456789,
+		TotalCommands:     1203,
+		TotalRawTokens:    500000,
+		TotalSavedTokens:  456789,
 		OverallSavingsPct: 78.3,
-		TodayCommands:    45,
-		TodaySavedTokens: 12340,
+		TodayCommands:     45,
+		TodaySavedTokens:  12340,
+		WeekCommands:      210,
+		WeekSavedTokens:   98765,
+		MonthCommands:     890,
+		MonthSavedTokens:  345678,
+		YearCommands:      1150,
+		YearSavedTokens:   430000,
 	}
 	out := FormatGain(s)
 	if !strings.Contains(out, "45 commands") {
@@ -219,6 +225,15 @@ func TestFormatGain(t *testing.T) {
 	}
 	if !strings.Contains(out, "12,340") {
 		t.Errorf("missing formatted today saved in output: %s", out)
+	}
+	if !strings.Contains(out, "210 commands") {
+		t.Errorf("missing week commands in output: %s", out)
+	}
+	if !strings.Contains(out, "890 commands") {
+		t.Errorf("missing month commands in output: %s", out)
+	}
+	if !strings.Contains(out, "1150 commands") {
+		t.Errorf("missing year commands in output: %s", out)
 	}
 	if !strings.Contains(out, "78.3%") {
 		t.Errorf("missing overall pct in output: %s", out)
