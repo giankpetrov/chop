@@ -94,7 +94,7 @@ func Track(command string, rawTokens, filteredTokens int) error {
 	if rawTokens > 0 {
 		savingsPct = 100.0 - (float64(filteredTokens) / float64(rawTokens) * 100.0)
 	}
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
+	now := time.Now().Local().Format("2006-01-02 15:04:05")
 	_, err := db.Exec(
 		`INSERT INTO tracking (timestamp, command, raw_tokens, filtered_tokens, savings_pct)
 		 VALUES (?, ?, ?, ?, ?)`,
@@ -118,7 +118,7 @@ func GetStats() (Stats, error) {
 		s.OverallSavingsPct = float64(s.TotalSavedTokens) / float64(s.TotalRawTokens) * 100.0
 	}
 
-	today := time.Now().UTC().Format("2006-01-02")
+	today := time.Now().Local().Format("2006-01-02")
 	row = db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ?`,
 		today+"%",
@@ -128,12 +128,12 @@ func GetStats() (Stats, error) {
 	}
 
 	// Calendar week: Monday 00:00 through now
-	now := time.Now().UTC()
+	now := time.Now().Local()
 	weekday := now.Weekday()
 	if weekday == time.Sunday {
 		weekday = 7
 	}
-	weekStart := time.Date(now.Year(), now.Month(), now.Day()-int(weekday-time.Monday), 0, 0, 0, 0, time.UTC).Format("2006-01-02 00:00:00")
+	weekStart := time.Date(now.Year(), now.Month(), now.Day()-int(weekday-time.Monday), 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
 	row = db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
 		weekStart,
@@ -143,7 +143,7 @@ func GetStats() (Stats, error) {
 	}
 
 	// Calendar month: 1st of current month through now
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02 00:00:00")
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
 	row = db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
 		monthStart,
@@ -153,7 +153,7 @@ func GetStats() (Stats, error) {
 	}
 
 	// Calendar year: Jan 1 of current year through now
-	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02 00:00:00")
+	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
 	row = db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
 		yearStart,
@@ -243,7 +243,7 @@ func Cleanup(days int) error {
 	if err := Init(); err != nil {
 		return err
 	}
-	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02 15:04:05")
+	cutoff := time.Now().Local().AddDate(0, 0, -days).Format("2006-01-02 15:04:05")
 	_, err := db.Exec(`DELETE FROM tracking WHERE timestamp < ?`, cutoff)
 	return err
 }
