@@ -54,6 +54,34 @@ web        nginx:1.25-alpine     Up 2h    :80->80
 db         postgres:16-alpine    Up 2h    :5432->5432
 ```
 
+```
+# Without chop (1,200+ tokens)
+$npm test
+
+> @acme/ui@1.0.0 test
+> jest
+
+ PASS  src/lib/button/button.component.spec.ts
+ PASS  src/lib/modal/modal.component.spec.ts
+ PASS  src/lib/tooltip/tooltip.component.spec.ts
+ PASS  src/lib/avatar/avatar.component.spec.ts
+ PASS  src/lib/badge/badge.component.spec.ts
+ PASS  src/lib/card/card.component.spec.ts
+ PASS  src/lib/alert/alert.component.spec.ts
+ PASS  src/lib/spinner/spinner.component.spec.ts
+ PASS  src/lib/checkbox/checkbox.component.spec.ts
+ PASS  src/lib/toggle/toggle.component.spec.ts
+...58 more passing suites...
+
+Test Suites: 59 passed, 59 total
+Tests:       2 skipped, 1679 passed, 1681 total
+Time:        12.296 s
+
+# With chop (5 tokens — 99% savings)
+$chop npm test
+all 1681 tests passed
+```
+
 ## Install
 
 **macOS / Linux:**
