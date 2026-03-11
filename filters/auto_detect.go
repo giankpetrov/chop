@@ -256,11 +256,6 @@ func looksLikeLog(lines []string) bool {
 }
 
 func compressLog(lines []string) string {
-	type logEntry struct {
-		line  string
-		count int
-	}
-
 	isImportant := func(line string) bool {
 		upper := strings.ToUpper(line)
 		return strings.Contains(upper, "ERROR") ||
@@ -269,20 +264,9 @@ func compressLog(lines []string) string {
 			strings.Contains(upper, "CRITICAL")
 	}
 
-	// Normalize line for dedup: strip timestamp prefix
-	normalize := func(line string) string {
-		loc := logPattern.FindStringIndex(line)
-		if loc != nil {
-			rest := strings.TrimSpace(line[loc[1]:])
-			return rest
-		}
-		return line
-	}
-
+	// Strip DEBUG/TRACE lines before processing if output is large
+	var filtered []string
 	stripDebug := len(lines) > 50
-	var entries []logEntry
-	seen := make(map[string]int) // normalized -> index in entries
-
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -293,7 +277,32 @@ func compressLog(lines []string) string {
 				continue
 			}
 		}
+		filtered = append(filtered, line)
+	}
 
+	// Try pattern-based compression first
+	if result, ok := compressLogPatterns(filtered, isImportant); ok {
+		return result
+	}
+
+	// Fallback: exact-match dedup after timestamp normalization
+	type logEntry struct {
+		line  string
+		count int
+	}
+
+	normalize := func(line string) string {
+		loc := logPattern.FindStringIndex(line)
+		if loc != nil {
+			return strings.TrimSpace(line[loc[1]:])
+		}
+		return line
+	}
+
+	var entries []logEntry
+	seen := make(map[string]int)
+
+	for _, line := range filtered {
 		norm := normalize(line)
 		if idx, ok := seen[norm]; ok {
 			entries[idx].count++
@@ -303,7 +312,6 @@ func compressLog(lines []string) string {
 		}
 	}
 
-	// Truncate to last 30 unique lines
 	if len(entries) > 30 {
 		entries = entries[len(entries)-30:]
 	}

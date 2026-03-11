@@ -22,6 +22,9 @@ var supportedCommands = map[string]bool{
 	"composer": true, "make": true, "cmake": true,
 	"gcc": true, "g++": true, "cc": true, "c++": true, "clang": true, "clang++": true,
 	"ping": true, "ps": true, "ss": true, "netstat": true, "df": true, "du": true,
+	"cat": true, "tail": true, "less": true, "more": true,
+	"find": true, "node": true, "node16": true, "node18": true, "node20": true, "node22": true,
+	"acli": true,
 }
 
 // shellBuiltins are commands that should never be wrapped.

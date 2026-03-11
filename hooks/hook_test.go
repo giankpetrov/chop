@@ -37,6 +37,9 @@ func TestSupportedCommandGetsPrepended(t *testing.T) {
 		{"go test ./...", "chop go test ./..."},
 		{"curl https://api.io", "chop curl https://api.io"},
 		{"dotnet build", "chop dotnet build"},
+		{"cat /var/log/syslog", "chop cat /var/log/syslog"},
+		{"tail -f /var/log/app.log", "chop tail -f /var/log/app.log"},
+		{"find . -name '*.go'", "chop find . -name '*.go'"},
 	}
 
 	for _, tt := range tests {
@@ -123,7 +126,6 @@ func TestUnsupportedCommandPassthrough(t *testing.T) {
 	tests := []string{
 		"vim file.txt",
 		"nano config.yml",
-		"cat readme.md",
 		"ls -la",
 		"mkdir newdir",
 		"rm -rf temp",

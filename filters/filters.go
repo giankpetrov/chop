@@ -106,6 +106,8 @@ func Get(command string, args []string) FilterFunc {
 		return filterNetstat
 	case "df", "du":
 		return filterDf
+	case "cat", "tail", "less", "more":
+		return filterAutoDetect
 	case "find":
 		return filterAutoDetect
 	case "node", "node16", "node18", "node20", "node22":
