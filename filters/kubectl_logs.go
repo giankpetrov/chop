@@ -164,6 +164,36 @@ func formatDedupEntry(d kubectlDedupEntry) string {
 }
 
 func filterTextLogs(lines []string) string {
+	// Strip DEBUG/TRACE and collect cleaned lines
+	var cleaned []string
+	totalLines := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		totalLines++
+		cleaned = append(cleaned, trimmed)
+	}
+
+	stripDebug := totalLines > 100
+	if stripDebug {
+		var kept []string
+		for _, line := range cleaned {
+			if isDebugLine(line) && !isErrorLine(line) {
+				continue
+			}
+			kept = append(kept, line)
+		}
+		cleaned = kept
+	}
+
+	// Try pattern-based compression first
+	if result, ok := compressLogPatterns(cleaned, isErrorLine); ok {
+		return result
+	}
+
+	// Fallback: consecutive exact-match dedup
 	type dedupLine struct {
 		line    string
 		count   int
@@ -171,36 +201,20 @@ func filterTextLogs(lines []string) string {
 	}
 
 	var deduped []dedupLine
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-
-		isErr := isErrorLine(trimmed)
-
-		if len(deduped) > 0 && deduped[len(deduped)-1].line == trimmed {
+	for _, line := range cleaned {
+		isErr := isErrorLine(line)
+		if len(deduped) > 0 && deduped[len(deduped)-1].line == line {
 			deduped[len(deduped)-1].count++
 			continue
 		}
-
-		deduped = append(deduped, dedupLine{line: trimmed, count: 1, isError: isErr})
+		deduped = append(deduped, dedupLine{line: line, count: 1, isError: isErr})
 	}
-
-	totalLines := 0
-	for _, d := range deduped {
-		totalLines += d.count
-	}
-
-	stripDebug := totalLines > 100
 
 	var errorLines []dedupLine
 	var normalLines []dedupLine
 	for _, d := range deduped {
 		if d.isError {
 			errorLines = append(errorLines, d)
-		} else if stripDebug && isDebugLine(d.line) {
-			continue
 		} else {
 			normalLines = append(normalLines, d)
 		}
