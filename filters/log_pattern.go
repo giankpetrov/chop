@@ -196,8 +196,8 @@ func compressLogPatterns(lines []string, isImportantFn func(string) bool) (strin
 			// Single occurrence — show original line unchanged
 			b.WriteString(g.lastLine)
 		} else {
-			// Multiple occurrences — show fingerprint with count
-			b.WriteString(fmt.Sprintf("%s (x%d)", g.fingerprint, g.count))
+			// Multiple occurrences — show a real example with count
+			b.WriteString(fmt.Sprintf("%s (x%d)", g.lastLine, g.count))
 		}
 		b.WriteString("\n")
 	}
