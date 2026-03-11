@@ -253,6 +253,139 @@ func TestFormatHistory(t *testing.T) {
 	}
 }
 
+func TestGetUnchopped(t *testing.T) {
+	setupTestDB(t)
+
+	// Commands with savings (should NOT appear)
+	if err := Track("git status", 100, 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("docker ps", 80, 30); err != nil {
+		t.Fatal(err)
+	}
+
+	// Commands with 0% savings (should appear)
+	if err := Track("ls -la /tmp", 50, 50); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("ls -la /home", 60, 60); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("ls -la /var", 40, 40); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("whoami", 10, 10); err != nil {
+		t.Fatal(err)
+	}
+
+	// Zero raw tokens should be excluded
+	if err := Track("empty", 0, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := GetUnchopped()
+	if err != nil {
+		t.Fatalf("GetUnchopped failed: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 unchopped commands, got %d", len(results))
+	}
+
+	// "ls -la" should be first (3 calls > 1 call for "whoami")
+	if results[0].Command != "ls -la" {
+		t.Errorf("expected first command 'ls -la', got %q", results[0].Command)
+	}
+	if results[0].Count != 3 {
+		t.Errorf("expected 3 calls for ls -la, got %d", results[0].Count)
+	}
+	if results[0].TotalTokens != 150 {
+		t.Errorf("expected 150 total tokens for ls -la, got %d", results[0].TotalTokens)
+	}
+
+	if results[1].Command != "whoami" {
+		t.Errorf("expected second command 'whoami', got %q", results[1].Command)
+	}
+	if results[1].Count != 1 {
+		t.Errorf("expected 1 call for whoami, got %d", results[1].Count)
+	}
+}
+
+func TestGetUnchoppedExcludesMixedCommands(t *testing.T) {
+	setupTestDB(t)
+
+	// "git clone" sometimes compresses, sometimes not — should be excluded
+	// (both share the same first-two-word key "git clone")
+	if err := Track("git clone https://repo-a.git", 100, 50); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("git clone https://repo-b.git", 100, 100); err != nil {
+		t.Fatal(err)
+	}
+
+	// "env" never compresses — should appear
+	if err := Track("env", 30, 30); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := GetUnchopped()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 unchopped command, got %d", len(results))
+	}
+	if results[0].Command != "env" {
+		t.Errorf("expected 'env', got %q", results[0].Command)
+	}
+}
+
+func TestGetUnchoppedEmpty(t *testing.T) {
+	setupTestDB(t)
+
+	// Only compressed commands
+	if err := Track("git status", 100, 20); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := GetUnchopped()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(results) != 0 {
+		t.Errorf("expected 0 unchopped, got %d", len(results))
+	}
+}
+
+func TestFormatUnchopped(t *testing.T) {
+	summaries := []UnchoppedSummary{
+		{Command: "ls -la", Count: 47, TotalTokens: 1234},
+		{Command: "whoami", Count: 12, TotalTokens: 48},
+	}
+	out := FormatUnchopped(summaries)
+	if !strings.Contains(out, "ls -la") {
+		t.Errorf("missing command in output: %s", out)
+	}
+	if !strings.Contains(out, "47") {
+		t.Errorf("missing count in output: %s", out)
+	}
+	if !strings.Contains(out, "1,234") {
+		t.Errorf("missing token count in output: %s", out)
+	}
+	if !strings.Contains(out, "2 command(s)") {
+		t.Errorf("missing summary in output: %s", out)
+	}
+}
+
+func TestFormatUnchoppedEmpty(t *testing.T) {
+	out := FormatUnchopped(nil)
+	if !strings.Contains(out, "all commands are being chopped") {
+		t.Errorf("unexpected empty output: %s", out)
+	}
+}
+
 func TestFormatHistoryEmpty(t *testing.T) {
 	out := FormatHistory(nil)
 	if out != "no commands tracked yet" {

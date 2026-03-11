@@ -262,14 +262,26 @@ func runConfig() {
 }
 
 func runGain(args []string) {
-	var showHistory, showSummary bool
+	var showHistory, showSummary, showUnchopped bool
 	for _, a := range args {
 		switch a {
 		case "--history":
 			showHistory = true
 		case "--summary":
 			showSummary = true
+		case "--unchopped":
+			showUnchopped = true
 		}
+	}
+
+	if showUnchopped {
+		summaries, err := tracking.GetUnchopped()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to read unchopped: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(tracking.FormatUnchopped(summaries))
+		return
 	}
 
 	if showHistory {
@@ -625,6 +637,7 @@ Subcommands:
   gain                        Show token savings stats
   gain --history              Recent commands with savings
   gain --summary              Per-command savings breakdown
+  gain --unchopped            Commands never compressed (new filter candidates)
   config                      Show config file path and contents
   init --global               Install Claude Code hook (~/.claude/settings.json)
   init --uninstall            Remove Claude Code hook

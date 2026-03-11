@@ -238,6 +238,78 @@ func GetCommandSummary() ([]CommandSummary, error) {
 	return summaries, rows.Err()
 }
 
+// UnchoppedSummary holds stats for commands that consistently get 0% savings.
+type UnchoppedSummary struct {
+	Command     string
+	Count       int
+	TotalTokens int // total raw tokens that could have been saved
+}
+
+// GetUnchopped returns commands that always got 0% savings, sorted by call count desc.
+// These are the best candidates for writing new filters.
+func GetUnchopped() ([]UnchoppedSummary, error) {
+	if err := Init(); err != nil {
+		return nil, err
+	}
+	// Group by first two words (command + subcommand) to distinguish e.g. "git clone" vs "git status".
+	// Only include commands where raw_tokens > 0 and savings_pct = 0.
+	// Exclude commands that have ANY record with savings > 0 (those already have working filters).
+	rows, err := db.Query(`
+		WITH cmd_key AS (
+			SELECT
+				CASE
+					WHEN INSTR(command, ' ') > 0 AND INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') > 0
+					THEN SUBSTR(command, 1, INSTR(command, ' ') + INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') - 1)
+					ELSE command
+				END AS cmd,
+				raw_tokens,
+				savings_pct
+			FROM tracking
+			WHERE raw_tokens > 0
+		)
+		SELECT
+			cmd,
+			COUNT(*) AS cnt,
+			COALESCE(SUM(raw_tokens), 0) AS total_raw
+		FROM cmd_key
+		WHERE cmd NOT IN (
+			SELECT DISTINCT cmd FROM cmd_key WHERE savings_pct > 0
+		)
+		GROUP BY cmd
+		ORDER BY cnt DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []UnchoppedSummary
+	for rows.Next() {
+		var s UnchoppedSummary
+		if err := rows.Scan(&s.Command, &s.Count, &s.TotalTokens); err != nil {
+			return nil, err
+		}
+		results = append(results, s)
+	}
+	return results, rows.Err()
+}
+
+// FormatUnchopped formats the unchopped commands report.
+func FormatUnchopped(summaries []UnchoppedSummary) string {
+	if len(summaries) == 0 {
+		return "all commands are being chopped! 🎉\n"
+	}
+	var b strings.Builder
+	b.WriteString("commands never compressed (candidates for new filters):\n\n")
+	b.WriteString(fmt.Sprintf("  %-25s %5s %10s\n", "COMMAND", "CALLS", "TOKENS"))
+	b.WriteString(fmt.Sprintf("  %-25s %5s %10s\n", strings.Repeat("─", 25), strings.Repeat("─", 5), strings.Repeat("─", 10)))
+	for _, s := range summaries {
+		b.WriteString(fmt.Sprintf("  %-25s %5d %10s\n", s.Command, s.Count, formatNum(s.TotalTokens)))
+	}
+	b.WriteString(fmt.Sprintf("\n  %d command(s) with 0%% savings — consider writing filters for the top ones\n", len(summaries)))
+	return b.String()
+}
+
 // Cleanup removes records older than the given number of days.
 func Cleanup(days int) error {
 	if err := Init(); err != nil {
