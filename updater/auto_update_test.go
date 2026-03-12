@@ -8,11 +8,7 @@ import (
 )
 
 func TestShouldCheck_NeverChecked(t *testing.T) {
-	// Override dataDir for test isolation
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
 	if !shouldCheck() {
 		t.Error("should return true when never checked")
@@ -20,12 +16,8 @@ func TestShouldCheck_NeverChecked(t *testing.T) {
 }
 
 func TestShouldCheck_RecentlyChecked(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
-	// Create a recent check file
 	touchLastCheck()
 
 	if shouldCheck() {
@@ -34,16 +26,11 @@ func TestShouldCheck_RecentlyChecked(t *testing.T) {
 }
 
 func TestShouldCheck_StaleCheck(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
-	// Create a stale check file
 	path, _ := lastCheckPath()
 	os.MkdirAll(filepath.Dir(path), 0o755)
 	os.WriteFile(path, []byte("old"), 0o644)
-	// Backdate the file
 	stale := time.Now().Add(-25 * time.Hour)
 	os.Chtimes(path, stale, stale)
 
@@ -53,39 +40,24 @@ func TestShouldCheck_StaleCheck(t *testing.T) {
 }
 
 func TestApplyPendingUpdate_DevVersion(t *testing.T) {
-	result := ApplyPendingUpdate("dev")
-	if result {
-		t.Error("should not apply updates for dev builds")
-	}
+	// Should be a no-op for dev builds — just verify no panic
+	ApplyPendingUpdate("dev")
 }
 
 func TestApplyPendingUpdate_NoPending(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	result := ApplyPendingUpdate("v1.0.0")
-	if result {
-		t.Error("should return false when no pending update exists")
-	}
+	t.Setenv("HOME", t.TempDir())
+	// Should return silently when no pending update exists
+	ApplyPendingUpdate("v1.0.0")
 }
 
 func TestApplyPendingUpdate_InvalidMarker(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
-	// Write invalid marker (missing binary path)
 	path, _ := pendingUpdatePath()
 	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, []byte("v2.0.0"), 0o644)
+	os.WriteFile(path, []byte("v2.0.0"), 0o644) // missing binary path
 
-	result := ApplyPendingUpdate("v1.0.0")
-	if result {
-		t.Error("should return false for invalid marker format")
-	}
+	ApplyPendingUpdate("v1.0.0")
 
 	// Marker should be cleaned up
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -94,20 +66,13 @@ func TestApplyPendingUpdate_InvalidMarker(t *testing.T) {
 }
 
 func TestApplyPendingUpdate_MissingBinary(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
-	// Write marker pointing to non-existent binary
 	path, _ := pendingUpdatePath()
 	os.MkdirAll(filepath.Dir(path), 0o755)
 	os.WriteFile(path, []byte("v2.0.0\n/nonexistent/chop.new"), 0o644)
 
-	result := ApplyPendingUpdate("v1.0.0")
-	if result {
-		t.Error("should return false when temp binary doesn't exist")
-	}
+	ApplyPendingUpdate("v1.0.0")
 
 	// Marker should be cleaned up
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -116,16 +81,13 @@ func TestApplyPendingUpdate_MissingBinary(t *testing.T) {
 }
 
 func TestBackgroundCheck_DevVersion(t *testing.T) {
-	// Should be a no-op for dev builds - just verify no panic
+	// Should be a no-op for dev builds — just verify no panic
 	BackgroundCheck("dev")
 	BackgroundCheck("v1.0.0-dirty")
 }
 
 func TestTouchLastCheck(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", t.TempDir())
 
 	touchLastCheck()
 

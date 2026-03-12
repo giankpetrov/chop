@@ -3,6 +3,7 @@ package updater
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -61,28 +62,28 @@ func touchLastCheck() {
 }
 
 // ApplyPendingUpdate checks for a pending update downloaded in a previous run.
-// If found, replaces the current binary and re-execs with the same args.
-// Returns true if an update was applied (caller should exit).
-func ApplyPendingUpdate(currentVersion string) bool {
+// If found, replaces the current binary. The update takes effect on the next invocation.
+// Silent on all errors - never disrupts the current command.
+func ApplyPendingUpdate(currentVersion string) {
 	if IsDev(currentVersion) {
-		return false
+		return
 	}
 
 	pending, err := pendingUpdatePath()
 	if err != nil {
-		return false
+		return
 	}
 
 	data, err := os.ReadFile(pending)
 	if err != nil {
-		return false
+		return
 	}
 
 	// Format: "version\ntmpBinaryPath"
 	parts := strings.SplitN(strings.TrimSpace(string(data)), "\n", 2)
 	if len(parts) != 2 {
 		os.Remove(pending)
-		return false
+		return
 	}
 
 	newVersion := parts[0]
@@ -93,25 +94,24 @@ func ApplyPendingUpdate(currentVersion string) bool {
 	if err != nil || info.Size() < 1024 {
 		os.Remove(pending)
 		os.Remove(tmpBinary)
-		return false
+		return
 	}
 
 	exe, err := os.Executable()
 	if err != nil {
 		os.Remove(pending)
-		return false
+		return
 	}
 
 	// Replace the current binary
 	if err := replaceBinary(exe, tmpBinary); err != nil {
 		os.Remove(pending)
 		os.Remove(tmpBinary)
-		return false
+		return
 	}
 
 	os.Remove(pending)
 	fmt.Fprintf(os.Stderr, "chop: auto-updated %s -> %s\n", currentVersion, newVersion)
-	return true
 }
 
 // replaceBinary atomically replaces the binary at destPath with srcPath.
@@ -135,27 +135,41 @@ func replaceBinary(destPath, srcPath string) error {
 	return os.Rename(srcPath, destPath)
 }
 
-// BackgroundCheck runs a non-blocking update check after the command has finished.
-// If a new version is available, downloads the binary to a temp location
-// and writes a pending-update marker for the next invocation to apply.
+// BackgroundCheck spawns a detached subprocess to check for updates and returns
+// immediately — the parent process exits without waiting for the check to complete.
 // Silent on all errors - never disrupts command output.
 func BackgroundCheck(currentVersion string) {
 	if IsDev(currentVersion) {
 		return
 	}
-
 	if !shouldCheck() {
 		return
 	}
 
-	touchLastCheck()
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
 
+	// Spawn detached subprocess — parent exits immediately, child runs independently.
+	cmd := exec.Command(exe, "--_bg-update", currentVersion)
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	if cmd.Start() == nil {
+		// Mark check initiated so we don't spawn again within the interval.
+		touchLastCheck()
+	}
+}
+
+// RunBackgroundUpdate performs the version check and download.
+// Called by the subprocess spawned from BackgroundCheck — runs after parent exits.
+func RunBackgroundUpdate(currentVersion string) {
 	latest, err := latestVersion()
 	if err != nil || latest == currentVersion {
 		return
 	}
 
-	// Download new binary to temp location next to current binary
 	exe, err := os.Executable()
 	if err != nil {
 		return
@@ -170,7 +184,6 @@ func BackgroundCheck(currentVersion string) {
 		return
 	}
 
-	// Write pending update marker
 	pending, err := pendingUpdatePath()
 	if err != nil {
 		os.Remove(tmpPath)

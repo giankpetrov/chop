@@ -49,6 +49,11 @@ func main() {
 	case "--post-update-check":
 		checkInstallDir()
 		return
+	case "--_bg-update":
+		if len(os.Args) >= 3 {
+			updater.RunBackgroundUpdate(os.Args[2])
+		}
+		return
 	case "update":
 		updater.Run(version)
 		return
