@@ -7,3 +7,6 @@ tests/fixtures/
 
 # chop
 .chop.yml
+
+# local dev artifacts
+docs/
