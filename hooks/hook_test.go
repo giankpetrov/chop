@@ -107,16 +107,55 @@ func TestRedirectPassthrough(t *testing.T) {
 }
 
 func TestCompoundCommandPassthrough(t *testing.T) {
+	// Commands where no segment is supported — should pass through unchanged.
 	tests := []string{
-		"git add . && git commit -m 'test'",
-		"npm install || echo failed",
 		"cd /tmp; ls",
+		"mkdir foo && cd foo",
 	}
 	for _, cmd := range tests {
 		t.Run(cmd, func(t *testing.T) {
 			_, shouldModify, _ := processHookInput(makeInput(cmd))
 			if shouldModify {
 				t.Errorf("should not modify compound command: %s", cmd)
+			}
+		})
+	}
+}
+
+func TestCompoundCommandWrapping(t *testing.T) {
+	tests := []struct {
+		cmd      string
+		expected string
+	}{
+		{
+			"git add . && git commit -m 'test'",
+			"chop git add . && chop git commit -m 'test'",
+		},
+		{
+			"npm install || echo failed",
+			"chop npm install || echo failed",
+		},
+		{
+			"go build ./... && go test ./...",
+			"chop go build ./... && chop go test ./...",
+		},
+		{
+			"docker build . && docker ps",
+			"chop docker build . && chop docker ps",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.cmd, func(t *testing.T) {
+			output, shouldModify, _ := processHookInput(makeInput(tt.cmd))
+			if !shouldModify {
+				t.Fatalf("expected compound command to be modified: %s", tt.cmd)
+			}
+			var result hookOutput
+			if err := json.Unmarshal(output, &result); err != nil {
+				t.Fatalf("failed to parse output JSON: %v", err)
+			}
+			if result.HookSpecificOutput.UpdatedInput.Command != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result.HookSpecificOutput.UpdatedInput.Command)
 			}
 		})
 	}

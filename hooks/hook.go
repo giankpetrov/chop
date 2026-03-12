@@ -32,8 +32,11 @@ var shellBuiltins = []string{
 	"cd ", "export ", "source ", "echo ", "printf ", "set ", "unset ", "alias ", "eval ",
 }
 
-// compoundOperators are shell operators that indicate compound commands.
-var compoundOperators = []string{"|", ">", ">>", "<", "&&", "||", ";"}
+// pipeRedirectOperators make wrapping ambiguous — skip the entire command.
+var pipeRedirectOperators = []string{" | ", ">", "<"}
+
+// logicalSeparators chain independent commands — split and wrap each segment.
+var logicalSeparators = []string{" && ", " || ", " ; "}
 
 // hookInput represents the JSON payload received from Claude Code's PreToolUse hook.
 type hookInput struct {
@@ -69,7 +72,10 @@ func RunHook() {
 
 	output, shouldModify, original := processHookInput(input)
 	if shouldModify {
-		auditLog(original, "chop "+original)
+		var result hookOutput
+		if err := json.Unmarshal(output, &result); err == nil {
+			auditLog(original, result.HookSpecificOutput.UpdatedInput.Command)
+		}
 		fmt.Print(string(output))
 	}
 	// If not modifying, output nothing (passthrough)
@@ -114,44 +120,116 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		}
 	}
 
-	// Compound commands - check for shell operators
-	for _, op := range compoundOperators {
+	// Pipe and redirect operators — can't wrap safely, pass through unchanged.
+	for _, op := range pipeRedirectOperators {
 		if strings.Contains(command, op) {
 			return nil, false, command
 		}
 	}
 
-	// Extract base command name
+	// Logical chaining operators — split and wrap each supported segment.
+	for _, op := range logicalSeparators {
+		if strings.Contains(command, op) {
+			return wrapCompound(command)
+		}
+	}
+
+	// Single command — wrap if supported.
+	if !shouldWrap(command) {
+		return nil, false, command
+	}
+
+	return buildOutput(command, "chop "+command)
+}
+
+// shouldWrap returns true if a single (non-compound) command should be wrapped with chop.
+func shouldWrap(command string) bool {
+	if strings.HasPrefix(command, "chop ") || strings.HasPrefix(command, ". ") {
+		return false
+	}
+	for _, prefix := range shellBuiltins {
+		if strings.HasPrefix(command, prefix) {
+			return false
+		}
+	}
 	baseCmd := command
 	if idx := strings.IndexByte(command, ' '); idx != -1 {
 		baseCmd = command[:idx]
 	}
-
-	// Strip path prefix (e.g., /usr/bin/git -> git)
 	if lastSlash := strings.LastIndexByte(baseCmd, '/'); lastSlash != -1 {
 		baseCmd = baseCmd[lastSlash+1:]
 	}
+	return supportedCommands[baseCmd]
+}
 
-	if !supportedCommands[baseCmd] {
+// splitLogical splits a command on logical separators (" && ", " || ", " ; "),
+// returning the segments and the operators between them.
+func splitLogical(command string) (segments []string, operators []string) {
+	rest := command
+	for {
+		earliest := -1
+		earliestOp := ""
+		for _, op := range logicalSeparators {
+			if idx := strings.Index(rest, op); idx != -1 && (earliest == -1 || idx < earliest) {
+				earliest = idx
+				earliestOp = op
+			}
+		}
+		if earliest == -1 {
+			segments = append(segments, rest)
+			break
+		}
+		segments = append(segments, rest[:earliest])
+		operators = append(operators, earliestOp)
+		rest = rest[earliest+len(earliestOp):]
+	}
+	return
+}
+
+// wrapCompound splits a compound command on logical operators and wraps each
+// supported segment with chop, reassembling the result.
+func wrapCompound(command string) ([]byte, bool, string) {
+	segments, operators := splitLogical(command)
+	modified := false
+	result := make([]string, len(segments))
+	for i, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if shouldWrap(seg) {
+			result[i] = "chop " + seg
+			modified = true
+		} else {
+			result[i] = seg
+		}
+	}
+	if !modified {
 		return nil, false, command
 	}
+	var sb strings.Builder
+	for i, seg := range result {
+		if i > 0 {
+			sb.WriteString(operators[i-1])
+		}
+		sb.WriteString(seg)
+	}
+	return buildOutput(command, sb.String())
+}
 
+// buildOutput constructs the hook JSON response for a rewritten command.
+func buildOutput(original, wrapped string) ([]byte, bool, string) {
 	out := hookOutput{
 		HookSpecificOutput: hookSpecificOutput{
 			HookEventName:      "PreToolUse",
 			PermissionDecision: "allow",
 			UpdatedInput: toolInput{
-				Command: "chop " + command,
+				Command: wrapped,
 			},
 		},
 	}
-
 	data, err := json.Marshal(out)
 	if err != nil {
-		return nil, false, command
+		return nil, false, original
 	}
-
-	return data, true, command
+	return data, true, original
 }
 
 // auditLog appends a rewrite entry to the hook audit log.
