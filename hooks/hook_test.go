@@ -40,6 +40,11 @@ func TestSupportedCommandGetsPrepended(t *testing.T) {
 		{"cat /var/log/syslog", "chop cat /var/log/syslog"},
 		{"tail -f /var/log/app.log", "chop tail -f /var/log/app.log"},
 		{"find . -name '*.go'", "chop find . -name '*.go'"},
+		{"python script.py", "chop python script.py"},
+		{"python3 script.py", "chop python3 script.py"},
+		{"bash -c 'echo test'", "chop bash -c 'echo test'"},
+		{"sh -c 'echo test'", "chop sh -c 'echo test'"},
+		{"zsh -c 'echo test'", "chop zsh -c 'echo test'"},
 	}
 
 	for _, tt := range tests {

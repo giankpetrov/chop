@@ -425,40 +425,9 @@ func Cleanup(days int) error {
 	return err
 }
 
-// CountTokens estimates LLM tokens by splitting on whitespace and common punctuation.
+// CountTokens returns the word count of a string (whitespace-split).
 func CountTokens(s string) int {
-	if s == "" {
-		return 0
-	}
-	count := 0
-	inToken := false
-	for _, r := range s {
-		// Treat whitespace and punctuation as token boundaries
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' ||
-			r == '.' || r == ',' || r == ';' || r == ':' ||
-			r == '!' || r == '?' || r == '(' || r == ')' ||
-			r == '[' || r == ']' || r == '{' || r == '}' ||
-			r == '"' || r == '\'' || r == '<' || r == '>' ||
-			r == '/' || r == '\\' || r == '|' || r == '=' ||
-			r == '+' || r == '-' || r == '*' || r == '&' ||
-			r == '^' || r == '%' || r == '$' || r == '#' ||
-			r == '@' || r == '~' || r == '`' {
-			if inToken {
-				count++
-				inToken = false
-			}
-			// Each punctuation mark is generally its own token in BPE
-			if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
-				count++
-			}
-		} else {
-			inToken = true
-		}
-	}
-	if inToken {
-		count++
-	}
-	return count
+	return len(strings.Fields(s))
 }
 
 // FormatGain prints the gain summary report.

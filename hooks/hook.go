@@ -17,6 +17,7 @@ var supportedCommands = map[string]bool{
 	"gh": true, "grep": true, "rg": true, "curl": true, "http": true,
 	"aws": true, "az": true, "gcloud": true, "mvn": true, "gradle": true, "gradlew": true,
 	"ng": true, "nx": true, "pytest": true, "pip": true, "pip3": true, "uv": true,
+	"python": true, "python3": true, "bash": true, "sh": true, "zsh": true,
 	"mypy": true, "ruff": true, "flake8": true, "pylint": true,
 	"bundle": true, "bundler": true, "rspec": true, "rubocop": true,
 	"composer": true, "make": true, "cmake": true,
