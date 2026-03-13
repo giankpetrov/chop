@@ -195,6 +195,11 @@ func TestCountTokens(t *testing.T) {
 		{"one", 1},
 		{"", 0},
 		{"multi\nline\ntext", 3},
+		{"hello, world!", 4}, // hello , world !
+		{"function foo() {", 5}, // function foo ( ) {
+		{"\"quoted\"", 3}, // " quoted "
+		{"user@domain.com", 5}, // user @ domain . com
+		{"1 + 1 = 2", 5}, // 1 + 1 = 2
 	}
 	for _, tc := range tests {
 		got := CountTokens(tc.input)
