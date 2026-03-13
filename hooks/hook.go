@@ -33,7 +33,9 @@ var shellBuiltins = []string{
 }
 
 // pipeRedirectOperators make wrapping ambiguous — skip the entire command.
-var pipeRedirectOperators = []string{" | ", ">", "<"}
+// File redirects always have surrounding spaces ("> file", ">> file", "< file").
+// fd-style redirects like "2>&1" intentionally do not match so they can be wrapped.
+var pipeRedirectOperators = []string{" | ", " > ", " >> ", " < "}
 
 // logicalSeparators chain independent commands — split and wrap each segment.
 var logicalSeparators = []string{" && ", " || ", " ; "}
@@ -172,6 +174,15 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, command
 	}
 
+	// Logical chaining operators — split first, then evaluate each segment independently.
+	// Must run before the shell-builtin and redirect checks so that commands like
+	// `cd /path && npm test 2>&1` are split into segments rather than rejected wholesale.
+	for _, op := range logicalSeparators {
+		if containsOutsideQuotes(command, op) {
+			return wrapCompound(command)
+		}
+	}
+
 	// Shell builtins
 	for _, prefix := range shellBuiltins {
 		if strings.HasPrefix(command, prefix) {
@@ -183,13 +194,6 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 	for _, op := range pipeRedirectOperators {
 		if containsOutsideQuotes(command, op) {
 			return nil, false, command
-		}
-	}
-
-	// Logical chaining operators — split and wrap each supported segment.
-	for _, op := range logicalSeparators {
-		if containsOutsideQuotes(command, op) {
-			return wrapCompound(command)
 		}
 	}
 
