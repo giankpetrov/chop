@@ -14,7 +14,7 @@ func TestFilterGrepManyFiles(t *testing.T) {
 		matchCount := 3 + i%5 // 3-7 matches per file
 		for j := 1; j <= matchCount; j++ {
 			lineNum := j * 10
-			lines = append(lines, fmt.Sprintf("%s:%d:    fmt.Println(\"TODO: implement feature %d-%d\")", file, lineNum, i, j))
+			lines = append(lines, fmt.Sprintf("%s:%d:    fmt.Println(\"Processing item %d-%d\")", file, lineNum, i, j))
 		}
 	}
 	raw := strings.Join(lines, "\n")
