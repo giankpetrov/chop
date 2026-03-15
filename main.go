@@ -125,6 +125,9 @@ func main() {
 	case "list":
 		runList()
 		return
+	case "diff":
+		runDiff(os.Args[2:])
+		return
 	case "init":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--uninstall|--status>")
@@ -878,6 +881,123 @@ func runList() {
 	}
 }
 
+func runDiff(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: chop diff <command> [args...]")
+		fmt.Fprintln(os.Stderr, "       echo 'output' | chop diff --stdin <command> [subcommand]")
+		os.Exit(1)
+	}
+
+	var raw string
+	var command string
+	var cmdArgs []string
+
+	if args[0] == "--stdin" {
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop diff --stdin <command> [subcommand]")
+			os.Exit(1)
+		}
+		command = args[1]
+		cmdArgs = args[2:]
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to read stdin: %v\n", err)
+			os.Exit(1)
+		}
+		raw = string(input)
+	} else {
+		command = args[0]
+		cmdArgs = args[1:]
+		cmd := exec.Command(command, cmdArgs...)
+		cmd.Stdin = os.Stdin
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			if _, ok := err.(*exec.ExitError); !ok {
+				fmt.Fprintf(os.Stderr, "chop: failed to run %s: %v\n", command, err)
+				os.Exit(1)
+			}
+		}
+		raw = string(output)
+	}
+
+	if raw == "" {
+		fmt.Println("(no output)")
+		return
+	}
+
+	filter := filters.Get(command, cmdArgs)
+	var filtered string
+	var filterName string
+
+	if filter != nil {
+		result, err := filter(raw)
+		if err != nil || result == raw {
+			filtered = raw
+			filterName = "(no compression)"
+		} else {
+			filtered = result
+			filterName = "built-in"
+		}
+	} else {
+		result, err := filters.AutoDetect(raw)
+		if err != nil || result == raw {
+			filtered = raw
+			filterName = "(no filter matched)"
+		} else {
+			filtered = result
+			filterName = "auto-detect"
+		}
+	}
+
+	rawLines := strings.Count(raw, "\n")
+	filteredLines := strings.Count(filtered, "\n")
+	rawTokens := tracking.CountTokens(raw)
+	filteredTokens := tracking.CountTokens(filtered)
+
+	savings := 0.0
+	if rawTokens > 0 {
+		savings = 100.0 - (float64(filteredTokens)/float64(rawTokens))*100.0
+	}
+
+	fmt.Println("=== RAW ===")
+	rawPreview := raw
+	rawTruncated := false
+	if rawLines > 30 {
+		rawPreview = firstNLines(raw, 30)
+		rawTruncated = true
+	}
+	fmt.Print(rawPreview)
+	if rawTruncated {
+		fmt.Printf("\n... (%d more lines)\n", rawLines-30)
+	}
+	fmt.Println()
+
+	fmt.Printf("=== FILTERED (%s) ===\n", filterName)
+	fmt.Print(filtered)
+	if !strings.HasSuffix(filtered, "\n") {
+		fmt.Println()
+	}
+	fmt.Println()
+
+	fmt.Println("=== STATS ===")
+	fmt.Printf("lines:   %d -> %d\n", rawLines, filteredLines)
+	fmt.Printf("tokens:  %d -> %d\n", rawTokens, filteredTokens)
+	if savings > 0 {
+		fmt.Printf("savings: %.1f%%\n", savings)
+	} else {
+		fmt.Println("savings: 0% (no compression)")
+	}
+}
+
+// firstNLines returns the first n lines of s.
+func firstNLines(s string, n int) string {
+	lines := strings.SplitN(s, "\n", n+1)
+	if len(lines) > n {
+		lines = lines[:n]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func runFilter(args []string) {
 	if len(args) == 0 {
 		showFilters()
@@ -1391,6 +1511,8 @@ Subcommands:
   filter remove <cmd>         Remove a filter (--local for project-level)
   filter test <cmd>           Test a custom filter (reads stdin)
   list                        List all built-in filters
+  diff <cmd> [args...]        Run command and show raw vs filtered output side-by-side
+  diff --stdin <cmd>          Read from stdin and show raw vs filtered comparison
   local                       Show local project config (.chop.yml)
   local add "git diff"        Disable a command in this project
   local remove "git diff"     Re-enable a command in this project
