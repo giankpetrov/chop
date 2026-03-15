@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/AgusRdz/chop/config"
@@ -83,27 +84,44 @@ func buildRuleFilter(keep, drop []string, head, tail int) FilterFunc {
 
 		// Phase 3: Head/tail truncation
 		if head > 0 && tail > 0 && head+tail < total {
-			headLines := lines[:head]
-			tailLines := lines[total-tail:]
-			hidden := total - head - tail
-			result := strings.Join(headLines, "\n") +
-				fmt.Sprintf("\n... (%d lines hidden)\n", hidden) +
-				strings.Join(tailLines, "\n")
-			return result, nil
+			headPart := strings.Join(lines[:head], "\n")
+			tailPart := strings.Join(lines[total-tail:], "\n")
+			hiddenStr := strconv.Itoa(total - head - tail)
+
+			var b strings.Builder
+			b.Grow(len(headPart) + len(tailPart) + len(hiddenStr) + 30)
+			b.WriteString(headPart)
+			b.WriteString("\n... (")
+			b.WriteString(hiddenStr)
+			b.WriteString(" lines hidden)\n")
+			b.WriteString(tailPart)
+			return b.String(), nil
 		}
 
 		if head > 0 && head < total {
-			result := strings.Join(lines[:head], "\n")
-			remaining := total - head
-			result += fmt.Sprintf("\n... (%d more lines)", remaining)
-			return result, nil
+			headPart := strings.Join(lines[:head], "\n")
+			remainingStr := strconv.Itoa(total - head)
+
+			var b strings.Builder
+			b.Grow(len(headPart) + len(remainingStr) + 30)
+			b.WriteString(headPart)
+			b.WriteString("\n... (")
+			b.WriteString(remainingStr)
+			b.WriteString(" more lines)")
+			return b.String(), nil
 		}
 
 		if tail > 0 && tail < total {
-			skipped := total - tail
-			result := fmt.Sprintf("... (%d lines skipped)\n", skipped)
-			result += strings.Join(lines[total-tail:], "\n")
-			return result, nil
+			tailPart := strings.Join(lines[total-tail:], "\n")
+			skippedStr := strconv.Itoa(total - tail)
+
+			var b strings.Builder
+			b.Grow(len(tailPart) + len(skippedStr) + 30)
+			b.WriteString("... (")
+			b.WriteString(skippedStr)
+			b.WriteString(" lines skipped)\n")
+			b.WriteString(tailPart)
+			return b.String(), nil
 		}
 
 		return strings.Join(lines, "\n"), nil
