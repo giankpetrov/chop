@@ -10,11 +10,12 @@ import (
 
 // CustomFilter defines a user-configured output filter for a specific command.
 type CustomFilter struct {
-	Keep []string `yaml:"keep"` // regex patterns - only lines matching at least one are kept
-	Drop []string `yaml:"drop"` // regex patterns - lines matching any are removed
-	Head int      `yaml:"head"` // keep only first N lines (applied after keep/drop)
-	Tail int      `yaml:"tail"` // keep only last N lines (applied after keep/drop)
-	Exec string   `yaml:"exec"` // external script: pipe output through this command
+	Keep    []string `yaml:"keep"`    // regex patterns - only lines matching at least one are kept
+	Drop    []string `yaml:"drop"`    // regex patterns - lines matching any are removed
+	Head    int      `yaml:"head"`    // keep only first N lines (applied after keep/drop)
+	Tail    int      `yaml:"tail"`    // keep only last N lines (applied after keep/drop)
+	Exec    string   `yaml:"exec"`    // external script: pipe output through this command
+	Trusted bool     `yaml:"-"`       // Internal: true if loaded from a trusted source
 }
 
 // CustomFiltersConfig holds the full filters.yml content.
@@ -35,29 +36,41 @@ func FiltersConfigPath() string {
 	return filepath.Join(dir, "chop", "filters.yml")
 }
 
-// LoadCustomFilters reads the custom filters config file.
+// LoadCustomFilters reads the custom filters config file as trusted.
 // Returns an empty map if the file doesn't exist or can't be parsed.
 func LoadCustomFilters() map[string]CustomFilter {
-	return LoadCustomFiltersFrom(FiltersConfigPath())
+	return loadCustomFiltersWithTrust(FiltersConfigPath(), true)
 }
 
-// LoadCustomFiltersFrom reads custom filters from a specific path.
+// LoadCustomFiltersFrom reads custom filters from a specific path as untrusted.
 func LoadCustomFiltersFrom(path string) map[string]CustomFilter {
+	return loadCustomFiltersWithTrust(path, false)
+}
+
+func loadCustomFiltersWithTrust(path string, trusted bool) map[string]CustomFilter {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
-	return ParseCustomFilters(data)
+	return parseCustomFiltersWithTrust(data, trusted)
 }
 
-// ParseCustomFilters parses YAML bytes into a custom filters map.
+// ParseCustomFilters parses YAML bytes into a custom filters map as untrusted.
 func ParseCustomFilters(data []byte) map[string]CustomFilter {
+	return parseCustomFiltersWithTrust(data, false)
+}
+
+func parseCustomFiltersWithTrust(data []byte, trusted bool) map[string]CustomFilter {
 	var cfg CustomFiltersConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil
 	}
 	if cfg.Filters == nil {
 		return nil
+	}
+	for k, v := range cfg.Filters {
+		v.Trusted = trusted
+		cfg.Filters[k] = v
 	}
 	return cfg.Filters
 }
@@ -98,6 +111,7 @@ func LookupCustomFilter(filters map[string]CustomFilter, command string, args []
 
 // LoadCustomFiltersWithLocal loads global custom filters, then overlays
 // a local .chop-filters.yml from the given directory (if it exists).
+// Global filters are trusted; local ones are NOT.
 // Local filters are merged on top of global ones (local wins on conflict).
 func LoadCustomFiltersWithLocal(cwd string) map[string]CustomFilter {
 	global := LoadCustomFilters()
@@ -107,7 +121,8 @@ func LoadCustomFiltersWithLocal(cwd string) map[string]CustomFilter {
 	}
 
 	localPath := filepath.Join(cwd, ".chop-filters.yml")
-	local := LoadCustomFiltersFrom(localPath)
+	// Local filters are untrusted
+	local := loadCustomFiltersWithTrust(localPath, false)
 
 	if len(local) == 0 {
 		return global
