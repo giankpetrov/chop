@@ -9,6 +9,12 @@ import (
 // FilterFunc takes raw command output and returns filtered output.
 type FilterFunc func(raw string) (string, error)
 
+// BuiltinCommand describes a command with a registered built-in filter.
+type BuiltinCommand struct {
+	Command    string
+	Subcommand string // empty if filter applies to entire command
+}
+
 // userFilters holds user-defined custom filters loaded at startup.
 var userFilters map[string]config.CustomFilter
 
@@ -39,123 +45,14 @@ func HasFilter(command string, args []string) bool {
 }
 
 func get(command string, args []string) FilterFunc {
-	switch command {
-	case "git":
-		return getGitFilter(args)
-	case "npm":
-		return getNpmFilter(args)
-	case "npx":
-		return getNpxFilter(args)
-	case "pnpm":
-		return getPnpmFilter(args)
-	case "yarn":
-		return getYarnFilter(args)
-	case "bun":
-		return getBunFilter(args)
-	case "docker", "podman":
-		return getDockerFilter(args)
-	case "docker-compose":
-		return getDockerComposeFilter(args)
-	case "dotnet":
-		return getDotnetFilter(args)
-	case "kubectl":
-		return getKubectlFilter(args)
-	case "helm":
-		return getHelmFilter(args)
-	case "terraform", "tofu":
-		return getTerraformFilter(args)
-	case "cargo":
-		return getCargoFilter(args)
-	case "go":
-		return getGoFilter(args)
-	case "tsc":
-		return filterTsc
-	case "eslint":
-		return filterEslint
-	case "biome":
-		return filterEslint
-	case "gh":
-		return getGhFilter(args)
-	case "grep":
-		return filterGrep
-	case "rg":
-		return filterGrep
-	case "curl":
-		return filterCurl
-	case "http":
-		return filterHttpie
-	case "aws":
-		return getAwsFilter(args)
-	case "az":
-		return getAzFilter(args)
-	case "gcloud":
-		return getGcloudFilter(args)
-	case "mvn":
-		return getMavenFilter(args)
-	case "gradle", "gradlew":
-		return getGradleFilter(args)
-	// Angular / Nx
-	case "ng":
-		return getAngularFilter(args)
-	case "nx":
-		return getNxFilter(args)
-	// Python
-	case "pytest":
-		return filterPytest
-	case "pip", "pip3":
-		return getPipFilter(args)
-	case "uv":
-		return getUvFilter(args)
-	case "mypy":
-		return filterMypy
-	case "ruff":
-		return filterRuff
-	case "flake8":
-		return filterRuff
-	case "pylint":
-		return filterPylint
-	// Ruby
-	case "bundle", "bundler":
-		return getBundleFilter(args)
-	case "rspec":
-		return filterRspec
-	case "rubocop":
-		return filterRubocop
-	// Ansible
-	case "ansible-playbook":
-		return filterAnsiblePlaybook
-	// PHP
-	case "composer":
-		return getComposerFilter(args)
-	// Build tools
-	case "make":
-		return filterMake
-	case "cmake":
-		return filterCmake
-	case "gcc", "g++", "cc", "c++", "clang", "clang++":
-		return filterCompiler
-	// System
-	case "ping":
-		return filterPing
-	case "ps":
-		return filterPsCmd
-	case "ss", "netstat":
-		return filterNetstat
-	case "df", "du":
-		return filterDf
-	case "cat", "tail", "less", "more":
-		return filterAutoDetect
-	case "ls":
-		return filterAutoDetect
-	case "find":
-		return filterAutoDetect
-	case "node", "node16", "node18", "node20", "node22":
-		return filterAutoDetect
-	case "acli":
-		return getAcliFilter(args)
-	default:
+	e, ok := registry[command]
+	if !ok {
 		return nil
 	}
+	if e.router != nil {
+		return e.router(args)
+	}
+	return e.filter
 }
 
 func getDockerFilter(args []string) FilterFunc {
@@ -593,82 +490,3 @@ func getComposerFilter(args []string) FilterFunc {
 	}
 }
 
-// BuiltinCommand describes a command with a registered built-in filter.
-type BuiltinCommand struct {
-	Command    string
-	Subcommand string // empty if filter applies to entire command
-}
-
-// ListBuiltins returns all commands and subcommands that have built-in filters.
-func ListBuiltins() []BuiltinCommand {
-	return []BuiltinCommand{
-		{Command: "git", Subcommand: "status"},
-		{Command: "git", Subcommand: "log"},
-		{Command: "git", Subcommand: "diff"},
-		{Command: "git", Subcommand: "show"},
-		{Command: "git", Subcommand: "branch"},
-		{Command: "git", Subcommand: "push"},
-		{Command: "git", Subcommand: "pull"},
-		{Command: "git", Subcommand: "fetch"},
-		{Command: "npm", Subcommand: "install"},
-		{Command: "npm", Subcommand: "list"},
-		{Command: "npm", Subcommand: "test"},
-		{Command: "npx"},
-		{Command: "pnpm", Subcommand: "install"},
-		{Command: "pnpm", Subcommand: "list"},
-		{Command: "yarn", Subcommand: "install"},
-		{Command: "bun", Subcommand: "install"},
-		{Command: "docker", Subcommand: "build"},
-		{Command: "docker", Subcommand: "ps"},
-		{Command: "docker", Subcommand: "logs"},
-		{Command: "docker-compose"},
-		{Command: "dotnet", Subcommand: "build"},
-		{Command: "dotnet", Subcommand: "test"},
-		{Command: "kubectl", Subcommand: "get"},
-		{Command: "kubectl", Subcommand: "describe"},
-		{Command: "kubectl", Subcommand: "logs"},
-		{Command: "helm", Subcommand: "install"},
-		{Command: "helm", Subcommand: "list"},
-		{Command: "terraform", Subcommand: "plan"},
-		{Command: "terraform", Subcommand: "apply"},
-		{Command: "terraform", Subcommand: "init"},
-		{Command: "cargo", Subcommand: "build"},
-		{Command: "cargo", Subcommand: "test"},
-		{Command: "go", Subcommand: "build"},
-		{Command: "go", Subcommand: "test"},
-		{Command: "tsc"},
-		{Command: "eslint"},
-		{Command: "biome"},
-		{Command: "gh"},
-		{Command: "grep"},
-		{Command: "rg"},
-		{Command: "curl"},
-		{Command: "aws"},
-		{Command: "az"},
-		{Command: "gcloud"},
-		{Command: "mvn"},
-		{Command: "gradle"},
-		{Command: "ng"},
-		{Command: "nx"},
-		{Command: "pytest"},
-		{Command: "pip", Subcommand: "install"},
-		{Command: "uv"},
-		{Command: "mypy"},
-		{Command: "ruff"},
-		{Command: "flake8"},
-		{Command: "pylint"},
-		{Command: "bundle", Subcommand: "install"},
-		{Command: "rspec"},
-		{Command: "rubocop"},
-		{Command: "ansible-playbook"},
-		{Command: "composer", Subcommand: "install"},
-		{Command: "make"},
-		{Command: "cmake"},
-		{Command: "gcc"},
-		{Command: "ping"},
-		{Command: "ps"},
-		{Command: "ss"},
-		{Command: "netstat"},
-		{Command: "df"},
-	}
-}
