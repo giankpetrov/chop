@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 var supportedCommands = map[string]bool{
@@ -339,9 +341,9 @@ func auditLog(original, rewritten string) {
 		return
 	}
 	dir := filepath.Join(home, ".local", "share", "chop")
-	os.MkdirAll(dir, 0o700)
+	os.MkdirAll(dir, config.SecureDirMode)
 	path := filepath.Join(dir, "hook-audit.log")
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, config.SecureFileMode)
 	if err != nil {
 		return
 	}

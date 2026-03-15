@@ -48,6 +48,11 @@ func LoadCustomFiltersFrom(path string) map[string]CustomFilter {
 }
 
 func loadCustomFiltersWithTrust(path string, trusted bool) map[string]CustomFilter {
+	if trusted && !IsSecure(path) {
+		// If it's supposed to be trusted but isn't secure, treat as untrusted
+		trusted = false
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
