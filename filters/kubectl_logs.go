@@ -3,6 +3,7 @@ package filters
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -141,26 +142,35 @@ func entryKey(e kubectlLogEntry) string {
 }
 
 func formatDedupEntry(d kubectlDedupEntry) string {
-	var line string
+	var sb strings.Builder
 	if d.entry.original != "" {
-		line = d.entry.original
+		sb.WriteString(d.entry.original)
 	} else {
-		var parts []string
+		first := true
 		if d.entry.timestamp != "" {
-			parts = append(parts, d.entry.timestamp)
+			sb.WriteString(d.entry.timestamp)
+			first = false
 		}
 		if d.entry.level != "" {
-			parts = append(parts, d.entry.level)
+			if !first {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(d.entry.level)
+			first = false
 		}
 		if d.entry.message != "" {
-			parts = append(parts, d.entry.message)
+			if !first {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(d.entry.message)
 		}
-		line = strings.Join(parts, " ")
 	}
 	if d.count > 1 {
-		line += fmt.Sprintf(" (x%d)", d.count)
+		sb.WriteString(" (x")
+		sb.WriteString(strconv.Itoa(d.count))
+		sb.WriteByte(')')
 	}
-	return line
+	return sb.String()
 }
 
 func filterTextLogs(lines []string) string {
@@ -234,7 +244,7 @@ func filterTextLogs(lines []string) string {
 	for _, d := range errorLines {
 		line := d.line
 		if d.count > 1 {
-			line += fmt.Sprintf(" (x%d)", d.count)
+			line += " (x" + strconv.Itoa(d.count) + ")"
 		}
 		out = append(out, line)
 	}
@@ -242,7 +252,7 @@ func filterTextLogs(lines []string) string {
 	for _, d := range normalLines {
 		line := d.line
 		if d.count > 1 {
-			line += fmt.Sprintf(" (x%d)", d.count)
+			line += " (x" + strconv.Itoa(d.count) + ")"
 		}
 		out = append(out, line)
 	}
