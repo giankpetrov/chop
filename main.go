@@ -261,13 +261,13 @@ func runCapture(args []string) {
 	}
 
 	fixtureDir := filepath.Join("tests", "fixtures")
-	if err := os.MkdirAll(fixtureDir, 0o755); err != nil {
+	if err := os.MkdirAll(fixtureDir, 0o700); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to create fixtures dir: %v\n", err)
 		os.Exit(1)
 	}
 
 	rawPath := filepath.Join(fixtureDir, baseName+".txt")
-	if err := os.WriteFile(rawPath, []byte(raw), 0o644); err != nil {
+	if err := os.WriteFile(rawPath, []byte(raw), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to write raw fixture: %v\n", err)
 		os.Exit(1)
 	}
@@ -279,7 +279,7 @@ func runCapture(args []string) {
 		filtered, ferr := filter(raw)
 		if ferr == nil {
 			filteredPath := filepath.Join(fixtureDir, baseName+".filtered.txt")
-			if err := os.WriteFile(filteredPath, []byte(filtered), 0o644); err != nil {
+			if err := os.WriteFile(filteredPath, []byte(filtered), 0o600); err != nil {
 				fmt.Fprintf(os.Stderr, "chop: failed to write filtered fixture: %v\n", err)
 			} else {
 				fmt.Fprintf(os.Stderr, "filtered: %s\n", filteredPath)
