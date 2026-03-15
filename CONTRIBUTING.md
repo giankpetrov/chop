@@ -2,6 +2,27 @@
 
 Thanks for your interest in contributing! chop has a modular design that makes adding new filters straightforward.
 
+## Keeping your fork up to date
+
+Before starting any work, sync your fork with upstream to avoid stale branches:
+
+```bash
+# Add upstream once
+git remote add upstream https://github.com/AgusRdz/chop.git
+
+# Each time before starting new work
+git fetch upstream
+git rebase upstream/main
+git push origin main
+
+# Then create your feature branch
+git checkout -b feat/my-feature
+```
+
+Alternatively, use the **"Sync fork"** button on your fork's GitHub page.
+
+PRs submitted from a stale branch will often conflict with recent changes and need to be applied manually, which means they show as "Closed" rather than "Merged". Syncing first avoids this.
+
 ## Development setup
 
 chop builds inside Docker — no local Go installation required.
