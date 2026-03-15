@@ -4,24 +4,45 @@ Thanks for your interest in contributing! chop has a modular design that makes a
 
 ## Keeping your fork up to date
 
-Before starting any work, sync your fork with upstream to avoid stale branches:
+PRs submitted from a stale branch conflict with recent changes and end up applied manually, showing as "Closed" instead of "Merged". Follow these steps every time before starting new work.
+
+### Option A - upstream remote (recommended)
+
+**One-time setup:**
 
 ```bash
-# Add upstream once
 git remote add upstream https://github.com/AgusRdz/chop.git
+```
 
-# Each time before starting new work
+**Before every PR:**
+
+```bash
+# 1. Fetch latest from upstream
 git fetch upstream
+
+# 2. Rebase your local main
 git rebase upstream/main
+
+# 3. Push to your fork
 git push origin main
 
-# Then create your feature branch
+# 4. Create your feature branch from the updated main
 git checkout -b feat/my-feature
 ```
 
-Alternatively, use the **"Sync fork"** button on your fork's GitHub page.
+### Option B - GitHub UI sync
 
-PRs submitted from a stale branch will often conflict with recent changes and need to be applied manually, which means they show as "Closed" rather than "Merged". Syncing first avoids this.
+If you use the **"Sync fork"** button on GitHub, you still need to pull locally before branching — otherwise your local copy is still on the old commit:
+
+```bash
+# 1. Click "Sync fork" on your fork's GitHub page
+
+# 2. Pull the sync down locally
+git pull origin main
+
+# 3. Create your feature branch
+git checkout -b feat/my-feature
+```
 
 ## Development setup
 
