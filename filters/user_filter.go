@@ -24,6 +24,10 @@ func BuildUserFilter(cf *config.CustomFilter) FilterFunc {
 
 	// Exec-based filter takes priority - it's a full pipeline replacement
 	if cf.Exec != "" {
+		if !cf.Trusted {
+			warnf("skipping untrusted exec filter for security. Move it to global filters.yml to enable.")
+			return nil
+		}
 		return buildExecFilter(cf.Exec)
 	}
 
@@ -107,24 +111,61 @@ func buildRuleFilter(keep, drop []string, head, tail int) FilterFunc {
 }
 
 // buildExecFilter creates a FilterFunc that pipes output through an external command.
-// The execCmd is passed to "sh -c", so it supports system commands (jq, python3, etc.),
-// scripts with arguments, and shell expressions.
 func buildExecFilter(execCmd string) FilterFunc {
 	return func(raw string) (string, error) {
-		// Expand ~ to home dir
-		expanded := expandHome(execCmd)
+		parts := splitCommand(execCmd)
+		if len(parts) == 0 {
+			return raw, fmt.Errorf("empty exec command")
+		}
 
-		cmd := exec.Command("sh", "-c", expanded)
+		for i, p := range parts {
+			parts[i] = expandHome(p)
+		}
+
+		cmd := exec.Command(parts[0], parts[1:]...)
 		cmd.Stdin = strings.NewReader(raw)
 
 		out, err := cmd.Output()
 		if err != nil {
 			// On script failure, return raw output rather than losing data
-			return raw, fmt.Errorf("exec filter failed (%s): %w", expanded, err)
+			return raw, fmt.Errorf("exec filter failed (%s): %w", strings.Join(parts, " "), err)
 		}
 
 		return string(out), nil
 	}
+}
+
+// splitCommand splits a command string into arguments, respecting quotes.
+func splitCommand(s string) []string {
+	var parts []string
+	var current strings.Builder
+	inQuotes := false
+	var quoteChar rune
+
+	for _, r := range s {
+		switch {
+		case inQuotes:
+			if r == quoteChar {
+				inQuotes = false
+			} else {
+				current.WriteRune(r)
+			}
+		case r == '"' || r == '\'':
+			inQuotes = true
+			quoteChar = r
+		case r == ' ' || r == '\t':
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	return parts
 }
 
 // compilePatterns compiles a list of regex pattern strings.
