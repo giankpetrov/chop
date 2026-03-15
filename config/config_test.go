@@ -215,7 +215,7 @@ func writeTemp(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yml")
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), SecureFileMode); err != nil {
 		t.Fatal(err)
 	}
 	return path

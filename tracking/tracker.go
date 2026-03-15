@@ -65,6 +65,7 @@ func dbPath() string {
 func Init() error {
 	dbOnce.Do(func() {
 		path := dbPath()
+		// SecureDirMode (0o700)
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			dbErr = err
 			return
@@ -73,6 +74,7 @@ func Init() error {
 		if dbErr != nil {
 			return
 		}
+		// SecureFileMode (0o600)
 		_ = os.Chmod(path, 0o600)
 		db.SetMaxOpenConns(1)
 		_, dbErr = db.Exec("PRAGMA journal_mode=WAL")

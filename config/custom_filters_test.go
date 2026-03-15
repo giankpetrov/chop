@@ -253,10 +253,10 @@ func TestLoadCustomFilters_InvalidYAML(t *testing.T) {
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), SecureDirMode); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(configPath, []byte("invalid: yaml: {"), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte("invalid: yaml: {"), SecureFileMode); err != nil {
 		t.Fatal(err)
 	}
 
@@ -306,7 +306,7 @@ filters:
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	globalConfigDir := filepath.Join(tmpXDG, "chop")
-	if err := os.MkdirAll(globalConfigDir, 0o755); err != nil {
+	if err := os.MkdirAll(globalConfigDir, SecureDirMode); err != nil {
 		t.Fatal(err)
 	}
 	globalConfigPath := filepath.Join(globalConfigDir, "filters.yml")
@@ -317,7 +317,7 @@ filters:
   "common-tool":
     head: 10
 `
-	if err := os.WriteFile(globalConfigPath, []byte(globalContent), 0o644); err != nil {
+	if err := os.WriteFile(globalConfigPath, []byte(globalContent), SecureFileMode); err != nil {
 		t.Fatal(err)
 	}
 
@@ -398,7 +398,7 @@ func TestLoadCustomFilters(t *testing.T) {
 
 	// Create the expected config file path
 	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), SecureDirMode); err != nil {
 		t.Fatal(err)
 	}
 
@@ -407,7 +407,7 @@ filters:
   "mycli build":
     keep: ["ERROR"]
 `
-	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), SecureFileMode); err != nil {
 		t.Fatal(err)
 	}
 
