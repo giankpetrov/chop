@@ -246,3 +246,12 @@ Error: Invalid reference
 		t.Errorf("expected second error preserved, got:\n%s", got)
 	}
 }
+
+func TestOpenTofuRoutesToTerraformFilter(t *testing.T) {
+	for _, sub := range []string{"plan", "apply", "init"} {
+		f := get("tofu", []string{sub})
+		if f == nil {
+			t.Errorf("expected filter for tofu %s, got nil", sub)
+		}
+	}
+}

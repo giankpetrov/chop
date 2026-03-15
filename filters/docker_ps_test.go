@@ -66,3 +66,12 @@ func TestFilterDockerPsHeaderOnly(t *testing.T) {
 		t.Errorf("expected 'no running containers', got %q", got)
 	}
 }
+
+func TestPodmanRoutesToDockerFilter(t *testing.T) {
+	for _, sub := range []string{"ps", "build", "images", "logs"} {
+		f := get("podman", []string{sub})
+		if f == nil {
+			t.Errorf("expected filter for podman %s, got nil", sub)
+		}
+	}
+}

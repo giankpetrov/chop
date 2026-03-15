@@ -52,7 +52,7 @@ func get(command string, args []string) FilterFunc {
 		return getYarnFilter(args)
 	case "bun":
 		return getBunFilter(args)
-	case "docker":
+	case "docker", "podman":
 		return getDockerFilter(args)
 	case "docker-compose":
 		return getDockerComposeFilter(args)
@@ -62,7 +62,7 @@ func get(command string, args []string) FilterFunc {
 		return getKubectlFilter(args)
 	case "helm":
 		return getHelmFilter(args)
-	case "terraform":
+	case "terraform", "tofu":
 		return getTerraformFilter(args)
 	case "cargo":
 		return getCargoFilter(args)
