@@ -138,7 +138,7 @@ func RunHook() {
 	// If not modifying, output nothing (passthrough)
 }
 
-// processHookInput parses the hook JSON and determines whether to wrap the command.
+// processHookInput parses the Claude Code hook JSON and determines whether to wrap the command.
 // Returns (outputJSON, shouldModify, originalCommand).
 func processHookInput(input []byte) ([]byte, bool, string) {
 	var h hookInput
@@ -160,50 +160,82 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	command := strings.TrimSpace(ti.Command)
+	wrapped, shouldModify, original := rewriteCommand(ti.Command)
+	if !shouldModify {
+		return nil, false, original
+	}
+
+	return buildOutput(original, wrapped)
+}
+
+// rewriteCommand takes a raw shell command and returns the wrapped version.
+// Returns (wrappedCommand, shouldModify, originalCommand).
+// This is the shared logic used by both Claude Code and Gemini CLI hooks.
+func rewriteCommand(command string) (string, bool, string) {
+	command = strings.TrimSpace(command)
 	if command == "" {
-		return nil, false, ""
+		return "", false, ""
 	}
 
 	// Already wrapped with chop
 	if strings.HasPrefix(command, "chop ") {
-		return nil, false, command
+		return "", false, command
 	}
 
 	// Starts with a dot (source shorthand)
 	if strings.HasPrefix(command, ". ") {
-		return nil, false, command
+		return "", false, command
 	}
 
 	// Logical chaining operators — split first, then evaluate each segment independently.
-	// Must run before the shell-builtin and redirect checks so that commands like
-	// `cd /path && npm test 2>&1` are split into segments rather than rejected wholesale.
 	for _, op := range logicalSeparators {
 		if containsOutsideQuotes(command, op) {
-			return wrapCompound(command)
+			segments, operators := splitLogical(command)
+			modified := false
+			result := make([]string, len(segments))
+			for i, seg := range segments {
+				seg = strings.TrimSpace(seg)
+				if shouldWrap(seg) {
+					result[i] = "chop " + seg
+					modified = true
+				} else {
+					result[i] = seg
+				}
+			}
+			if !modified {
+				return "", false, command
+			}
+			var sb strings.Builder
+			for i, seg := range result {
+				if i > 0 {
+					sb.WriteString(operators[i-1])
+				}
+				sb.WriteString(seg)
+			}
+			return sb.String(), true, command
 		}
 	}
 
 	// Shell builtins
 	for _, prefix := range shellBuiltins {
 		if strings.HasPrefix(command, prefix) {
-			return nil, false, command
+			return "", false, command
 		}
 	}
 
-	// Pipe and redirect operators — can't wrap safely, pass through unchanged.
+	// Pipe and redirect operators — can't wrap safely
 	for _, op := range pipeRedirectOperators {
 		if containsOutsideQuotes(command, op) {
-			return nil, false, command
+			return "", false, command
 		}
 	}
 
-	// Single command — wrap if supported.
+	// Single command — wrap if supported
 	if !shouldWrap(command) {
-		return nil, false, command
+		return "", false, command
 	}
 
-	return buildOutput(command, "chop "+command)
+	return "chop " + command, true, command
 }
 
 // shouldWrap returns true if a single (non-compound) command should be wrapped with chop.
