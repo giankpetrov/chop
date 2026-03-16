@@ -502,6 +502,59 @@ func TestDeleteCommand(t *testing.T) {
 	}
 }
 
+func TestDeleteCommandWithWildcards(t *testing.T) {
+	setupTestDB(t)
+
+	// Tracks commands that contain SQL LIKE wildcards
+	if err := Track("ls %tmp%", 50, 50); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("ls %tmp% something", 30, 30); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("ls _tmp_", 40, 40); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("ls other", 100, 20); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should delete "ls %tmp%" and "ls %tmp% something", but NOT "ls _tmp_" or "ls other"
+	if err := DeleteCommand("ls %tmp%"); err != nil {
+		t.Fatalf("DeleteCommand failed: %v", err)
+	}
+
+	records, err := GetHistory(100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundWildcard := false
+	foundOther := false
+	foundUnderscore := false
+	for _, r := range records {
+		if strings.HasPrefix(r.Command, "ls %tmp%") {
+			foundWildcard = true
+		}
+		if r.Command == "ls other" {
+			foundOther = true
+		}
+		if r.Command == "ls _tmp_" {
+			foundUnderscore = true
+		}
+	}
+
+	if foundWildcard {
+		t.Errorf("expected 'ls %%tmp%%' and its variants to be deleted, but they were found")
+	}
+	if !foundOther {
+		t.Error("expected 'ls other' to remain, but it was deleted")
+	}
+	if !foundUnderscore {
+		t.Error("expected 'ls _tmp_' to remain, but it was deleted")
+	}
+}
+
 func TestFormatHistoryEmpty(t *testing.T) {
 	out := FormatHistory(nil, false)
 	if out != "no commands tracked yet" {
