@@ -8,8 +8,7 @@ import (
 type gitSection int
 
 const (
-	sectionNone gitSection = iota
-	sectionStaged
+	sectionStaged gitSection = iota + 1
 	sectionUnstaged
 	sectionUntracked
 )
@@ -26,7 +25,7 @@ func filterGitStatus(raw string) (string, error) {
 	lines := strings.Split(trimmed, "\n")
 
 	var staged, unstaged, untracked []string
-	section := sectionNone
+	var section gitSection
 
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
