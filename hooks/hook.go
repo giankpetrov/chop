@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 var supportedCommands = map[string]bool{
@@ -366,11 +368,7 @@ func buildOutput(original, wrapped string) ([]byte, bool, string) {
 // auditLog appends a rewrite entry to the hook audit log.
 // Silent on all errors - never slows down or breaks the hook.
 func auditLog(original, rewritten string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-	dir := filepath.Join(home, ".local", "share", "chop")
+	dir := config.DataDir()
 	os.MkdirAll(dir, 0o700)
 	path := filepath.Join(dir, "hook-audit.log")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
@@ -384,9 +382,5 @@ func auditLog(original, rewritten string) {
 
 // AuditLogPath returns the path to the hook audit log file.
 func AuditLogPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".local", "share", "chop", "hook-audit.log"), nil
+	return filepath.Join(config.DataDir(), "hook-audit.log"), nil
 }

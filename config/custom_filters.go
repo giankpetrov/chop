@@ -25,21 +25,15 @@ type CustomFiltersConfig struct {
 
 // FiltersConfigPath returns the path to the custom filters file.
 func FiltersConfigPath() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		dir = filepath.Join(home, ".config")
-	}
-	return filepath.Join(dir, "chop", "filters.yml")
+	return filepath.Join(ConfigDir(), "filters.yml")
 }
 
-// LoadCustomFilters reads the custom filters config file as trusted.
-// Returns an empty map if the file doesn't exist or can't be parsed.
+// LoadCustomFilters reads the custom filters config file.
+// Global filters are trusted only if the config file is secure.
 func LoadCustomFilters() map[string]CustomFilter {
-	return loadCustomFiltersWithTrust(FiltersConfigPath(), true)
+	path := FiltersConfigPath()
+	trusted := IsSecure(path)
+	return loadCustomFiltersWithTrust(path, trusted)
 }
 
 // LoadCustomFiltersFrom reads custom filters from a specific path as untrusted.

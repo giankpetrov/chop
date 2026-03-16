@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -212,13 +213,21 @@ func matchesAny(line string, patterns []*regexp.Regexp) bool {
 }
 
 // expandHome replaces a leading ~ with the user's home directory.
+// Only expands if the argument is exactly "~", or starts with "~/" or "~\".
 func expandHome(path string) string {
-	if !strings.HasPrefix(path, "~") {
-		return path
+	if path == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return home
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return path
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
 	}
-	return strings.Replace(path, "~", home, 1)
+	return path
 }
