@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AgusRdz/chop/config"
+	"github.com/giankpetrov/openchop/config"
 )
 
 // warnf writes a warning to stderr. Used for non-fatal config issues.
 var warnf = func(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "chop: warning: "+format+"\n", args...)
+	fmt.Fprintf(os.Stderr, "openchop: warning: "+format+"\n", args...)
 }
 
 // BuildUserFilter creates a FilterFunc from a user-defined CustomFilter.

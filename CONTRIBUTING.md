@@ -1,6 +1,6 @@
-# Contributing to chop
+# Contributing to openchop
 
-Thanks for your interest in contributing! chop has a modular design that makes adding new filters straightforward.
+Thanks for your interest in contributing! openchop has a modular design that makes adding new filters straightforward.
 
 ## Keeping your fork up to date
 
@@ -11,7 +11,7 @@ PRs submitted from a stale branch conflict with recent changes and end up applie
 **One-time setup:**
 
 ```bash
-git remote add upstream https://github.com/AgusRdz/chop.git
+git remote add upstream https://github.com/giankpetrov/openchop.git
 ```
 
 **Before every PR:**
@@ -46,7 +46,7 @@ git checkout -b feat/my-feature
 
 ## Development setup
 
-chop builds inside Docker — no local Go installation required.
+openchop builds inside Docker — no local Go installation required.
 
 ```bash
 # Run tests
@@ -185,7 +185,7 @@ func TestMyCmdRouted(t *testing.T) {
 }
 ```
 
-Use `chop capture <command> [args...]` to grab real output for test fixtures.
+Use `openchop capture <command> [args...]` to grab real output for test fixtures.
 
 ### 5. Aliasing compatible commands
 
@@ -230,6 +230,6 @@ These feed directly into the changelog via [git-cliff](https://git-cliff.org/).
 
 - **One filter per file** — keeps things modular and easy to review
 - **Match existing patterns** — look at `ping.go` or `git_push.go` for clean examples
-- **Test with real output** — use `chop capture` to grab fixtures from actual commands
+- **Test with real output** — use `openchop capture` to grab fixtures from actual commands
 - **Don't break on unexpected input** — return `raw` unchanged rather than erroring
 - **Keep dependencies minimal** — stdlib only in filters (the only external dep is SQLite for tracking)

@@ -31,7 +31,7 @@ type geminiHookSpecificOutput struct {
 }
 
 // RunGeminiHook reads a Gemini CLI BeforeTool hook payload from stdin,
-// checks if the command should be wrapped with chop, and outputs
+// checks if the command should be wrapped with openchop, and outputs
 // modified JSON on stdout. Always exits 0.
 func RunGeminiHook() {
 	input, err := io.ReadAll(os.Stdin)

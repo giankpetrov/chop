@@ -10,10 +10,10 @@ func disabledPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".local", "share", "chop", "disabled")
+	return filepath.Join(home, ".local", "share", "openchop", "disabled")
 }
 
-// IsDisabledGlobally reports whether chop hook wrapping is disabled.
+// IsDisabledGlobally reports whether openchop hook wrapping is disabled.
 func IsDisabledGlobally() bool {
 	p := disabledPath()
 	if p == "" {

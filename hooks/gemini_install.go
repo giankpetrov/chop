@@ -7,27 +7,27 @@ import (
 	"strings"
 )
 
-// GeminiInstall registers the chop hook in .gemini/settings.json.
+// GeminiInstall registers the openchop hook in .gemini/settings.json.
 func GeminiInstall() {
 	settingsPath := geminiSettingsPath()
 	if err := geminiInstallTo(settingsPath); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("chop hook installed in %s\n", settingsPath)
+	fmt.Printf("openchop hook installed in %s\n", settingsPath)
 }
 
-// GeminiUninstall removes the chop hook from .gemini/settings.json.
+// GeminiUninstall removes the openchop hook from .gemini/settings.json.
 func GeminiUninstall() {
 	settingsPath := geminiSettingsPath()
 	if err := geminiUninstallFrom(settingsPath); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("chop hook removed from %s\n", settingsPath)
+	fmt.Printf("openchop hook removed from %s\n", settingsPath)
 }
 
-// GeminiIsInstalled checks whether the chop hook is registered in .gemini/settings.json.
+// GeminiIsInstalled checks whether the openchop hook is registered in .gemini/settings.json.
 func GeminiIsInstalled() (bool, string) {
 	settingsPath := geminiSettingsPath()
 	settings, err := readSettings(settingsPath)
@@ -171,7 +171,7 @@ func geminiInstallWithCommand(settingsPath string, hookCmd string) error {
 			return fmt.Errorf("run_shell_command matcher hooks is not an array")
 		}
 
-		// Check if chop hook already exists — update it
+		// Check if openchop hook already exists — update it
 		chopIdx := -1
 		for i, h := range hooksArray {
 			hMap, ok := h.(map[string]interface{})

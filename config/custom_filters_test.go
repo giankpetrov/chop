@@ -50,7 +50,7 @@ filters:
 			input: `
 filters:
   "ansible-playbook":
-    exec: "~/.config/chop/scripts/ansible.sh"
+    exec: "~/.config/openchop/scripts/ansible.sh"
 `,
 			wantLen:  1,
 			wantKeys: []string{"ansible-playbook"},
@@ -252,7 +252,7 @@ func TestLoadCustomFilters_InvalidYAML(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", tmpDir)
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
-	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
+	configPath := filepath.Join(tmpDir, "openchop", "filters.yml")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestLoadCustomFiltersWithLocal(t *testing.T) {
 
 	// 2. Test with local filters only
 	dir := t.TempDir()
-	localPath := filepath.Join(dir, ".chop-filters.yml")
+	localPath := filepath.Join(dir, ".openchop-filters.yml")
 
 	content := `
 filters:
@@ -305,7 +305,7 @@ filters:
 	os.Setenv("XDG_CONFIG_HOME", tmpXDG)
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
-	globalConfigDir := filepath.Join(tmpXDG, "chop")
+	globalConfigDir := filepath.Join(tmpXDG, "openchop")
 	if err := os.MkdirAll(globalConfigDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ filters:
 	}
 
 	projectDir := t.TempDir()
-	localConfigPath := filepath.Join(projectDir, ".chop-filters.yml")
+	localConfigPath := filepath.Join(projectDir, ".openchop-filters.yml")
 	localContent := `
 filters:
   "local-tool":
@@ -376,7 +376,7 @@ func TestFiltersConfigPath(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
-	expected := filepath.Join("/tmp/xdg", "chop", "filters.yml")
+	expected := filepath.Join("/tmp/xdg", "openchop", "filters.yml")
 	if p := FiltersConfigPath(); p != expected {
 		t.Errorf("expected %s, got %s", expected, p)
 	}
@@ -397,7 +397,7 @@ func TestLoadCustomFilters(t *testing.T) {
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	// Create the expected config file path
-	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
+	configPath := filepath.Join(tmpDir, "openchop", "filters.yml")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatal(err)
 	}

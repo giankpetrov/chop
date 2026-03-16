@@ -70,7 +70,7 @@ func TestApplyPendingUpdate_MissingBinary(t *testing.T) {
 
 	path, _ := pendingUpdatePath()
 	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, []byte("v2.0.0\n/nonexistent/chop.new"), 0o644)
+	os.WriteFile(path, []byte("v2.0.0\n/nonexistent/openchop.new"), 0o644)
 
 	ApplyPendingUpdate("v1.0.0")
 
@@ -104,8 +104,8 @@ func TestTouchLastCheck(t *testing.T) {
 func TestReplaceBinary(t *testing.T) {
 	dir := t.TempDir()
 
-	dest := filepath.Join(dir, "chop")
-	src := filepath.Join(dir, "chop.new")
+	dest := filepath.Join(dir, "openchop")
+	src := filepath.Join(dir, "openchop.new")
 
 	os.WriteFile(dest, []byte("old"), 0o755)
 	os.WriteFile(src, []byte("new"), 0o755)

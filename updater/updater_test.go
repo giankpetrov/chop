@@ -31,8 +31,8 @@ func TestIsDev(t *testing.T) {
 
 func TestBuildBinaryName(t *testing.T) {
 	name := buildBinaryName()
-	if !strings.HasPrefix(name, "chop-") {
-		t.Errorf("expected name to start with 'chop-', got %q", name)
+	if !strings.HasPrefix(name, "openchop-") {
+		t.Errorf("expected name to start with 'openchop-', got %q", name)
 	}
 	if !strings.Contains(name, runtime.GOOS) {
 		t.Errorf("expected name to contain GOOS %q, got %q", runtime.GOOS, name)
@@ -99,7 +99,7 @@ func TestDownload_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	dest := filepath.Join(t.TempDir(), "chop-test")
+	dest := filepath.Join(t.TempDir(), "openchop-test")
 	if err := download(srv.URL, dest); err != nil {
 		t.Fatalf("download failed: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestDownload_404(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	dest := filepath.Join(t.TempDir(), "chop-test")
+	dest := filepath.Join(t.TempDir(), "openchop-test")
 	err := download(srv.URL, dest)
 	if err == nil {
 		t.Fatal("expected error for 404 response")
@@ -138,7 +138,7 @@ func TestDownload_TooSmall(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	dest := filepath.Join(t.TempDir(), "chop-test")
+	dest := filepath.Join(t.TempDir(), "openchop-test")
 	err := download(srv.URL, dest)
 	if err == nil {
 		t.Fatal("expected error for undersized binary")
@@ -157,7 +157,7 @@ func TestDownload_CleansUpTmpOnWriteFailure(t *testing.T) {
 	defer srv.Close()
 
 	dir := t.TempDir()
-	dest := filepath.Join(dir, "chop-test")
+	dest := filepath.Join(dir, "openchop-test")
 	_ = download(srv.URL, dest)
 
 	tmp := dest + ".tmp"
@@ -167,19 +167,19 @@ func TestDownload_CleansUpTmpOnWriteFailure(t *testing.T) {
 }
 
 func TestParseChecksum(t *testing.T) {
-	checksums := `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  chop-linux-amd64
-abc123def456789  chop-darwin-arm64
-deadbeefcafebabe  chop-windows-amd64.exe
+	checksums := `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  openchop-linux-amd64
+abc123def456789  openchop-darwin-arm64
+deadbeefcafebabe  openchop-windows-amd64.exe
 `
 	tests := []struct {
 		name    string
 		want    string
 		wantErr bool
 	}{
-		{"chop-linux-amd64", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false},
-		{"chop-darwin-arm64", "abc123def456789", false},
-		{"chop-windows-amd64.exe", "deadbeefcafebabe", false},
-		{"chop-nonexistent", "", true},
+		{"openchop-linux-amd64", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false},
+		{"openchop-darwin-arm64", "abc123def456789", false},
+		{"openchop-windows-amd64.exe", "deadbeefcafebabe", false},
+		{"openchop-nonexistent", "", true},
 	}
 	for _, tc := range tests {
 		got, err := parseChecksum(checksums, tc.name)
@@ -201,8 +201,8 @@ deadbeefcafebabe  chop-windows-amd64.exe
 
 func TestParseChecksum_StarPrefix(t *testing.T) {
 	// Some sha256sum implementations use * prefix for binary mode
-	checksums := "abc123  *chop-linux-amd64\n"
-	got, err := parseChecksum(checksums, "chop-linux-amd64")
+	checksums := "abc123  *openchop-linux-amd64\n"
+	got, err := parseChecksum(checksums, "openchop-linux-amd64")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestHashFile(t *testing.T) {
 func TestVerifyChecksum_NoChecksumsAvailable(t *testing.T) {
 	// When checksums.txt doesn't exist (old release), verification should pass gracefully.
 	// verifyChecksum returns nil when fetchExpectedChecksum errors (graceful fallback).
-	_, err := fetchExpectedChecksum("v99.0.0", "chop-linux-amd64")
+	_, err := fetchExpectedChecksum("v99.0.0", "openchop-linux-amd64")
 	if err == nil {
 		t.Error("expected error when checksums.txt not found for nonexistent release")
 	}

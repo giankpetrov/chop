@@ -11,7 +11,7 @@ func TestGeminiInstallCreatesHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 
-	hookCmd := `"/usr/local/bin/chop" hook --gemini`
+	hookCmd := `"/usr/local/bin/openchop" hook --gemini`
 	if err := geminiInstallWithCommand(path, hookCmd); err != nil {
 		t.Fatalf("install failed: %v", err)
 	}
@@ -61,12 +61,12 @@ func TestGeminiInstallUpdatesExisting(t *testing.T) {
 	path := filepath.Join(dir, "settings.json")
 
 	// Install twice — should update, not duplicate
-	hookCmd := `"/usr/local/bin/chop" hook --gemini`
+	hookCmd := `"/usr/local/bin/openchop" hook --gemini`
 	if err := geminiInstallWithCommand(path, hookCmd); err != nil {
 		t.Fatalf("first install failed: %v", err)
 	}
 
-	newCmd := `"/new/path/chop" hook --gemini`
+	newCmd := `"/new/path/openchop" hook --gemini`
 	if err := geminiInstallWithCommand(path, newCmd); err != nil {
 		t.Fatalf("second install failed: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestGeminiUninstallRemovesHook(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 
-	hookCmd := `"/usr/local/bin/chop" hook --gemini`
+	hookCmd := `"/usr/local/bin/openchop" hook --gemini`
 	geminiInstallWithCommand(path, hookCmd)
 
 	if err := geminiUninstallFrom(path); err != nil {

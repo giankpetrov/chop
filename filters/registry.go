@@ -9,8 +9,8 @@ type routerFunc func(args []string) FilterFunc
 type entry struct {
 	filter   FilterFunc // for simple/direct filters (e.g., filterPing)
 	router   routerFunc // for subcommand routers (e.g., getGitFilter)
-	builtins []string   // subcommands shown in `chop list`; nil = command-level
-	hidden   bool       // if true, excluded from `chop list` (autoDetect fallbacks)
+	builtins []string   // subcommands shown in `openchop list`; nil = command-level
+	hidden   bool       // if true, excluded from `openchop list` (autoDetect fallbacks)
 }
 
 // registry maps command names to their filter entries.
@@ -46,7 +46,7 @@ func registerAlias(target string, names ...string) {
 	}
 }
 
-// registerHidden registers a filter that won't appear in `chop list`.
+// registerHidden registers a filter that won't appear in `openchop list`.
 func registerHidden(filter FilterFunc, commands ...string) {
 	e := &entry{filter: filter, hidden: true}
 	for _, cmd := range commands {
@@ -123,7 +123,7 @@ func init() {
 
 	registerAlias("df", "du")
 
-	// --- Hidden (autoDetect fallbacks, not shown in `chop list`) ---
+	// --- Hidden (autoDetect fallbacks, not shown in `openchop list`) ---
 	registerHidden(filterAutoDetect, "cat", "tail", "less", "more")
 	registerHidden(filterAutoDetect, "ls")
 	registerHidden(filterAutoDetect, "find")

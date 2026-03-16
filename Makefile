@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
 build:
-	docker compose run --rm dev go build -ldflags="$(LDFLAGS)" -o bin/chop .
+	docker compose run --rm dev go build -ldflags="$(LDFLAGS)" -o bin/openchop .
 
 test:
 	docker compose run --rm dev go test ./... -v
@@ -28,10 +28,10 @@ else
 endif
 GOARCH ?= $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,amd64)
 EXT := $(if $(filter windows,$(GOOS)),.exe,)
-BINARY := bin/chop$(EXT)
+BINARY := bin/openchop$(EXT)
 
 ifeq ($(GOOS),windows)
-  INSTALL_DIR ?= $(LOCALAPPDATA)/Programs/chop
+  INSTALL_DIR ?= $(LOCALAPPDATA)/Programs/openchop
 else
   INSTALL_DIR ?= $(HOME)/.local/bin
 endif
@@ -39,8 +39,8 @@ endif
 install:
 	docker compose run --rm dev sh -c "CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags='$(LDFLAGS)' -o $(BINARY) ."
 	@mkdir -p "$(INSTALL_DIR)"
-	cp $(BINARY) "$(INSTALL_DIR)/chop$(EXT)"
-	@echo "installed chop $(VERSION) ($(GOOS)/$(GOARCH)) to $(INSTALL_DIR)/chop$(EXT)"
+	cp $(BINARY) "$(INSTALL_DIR)/openchop$(EXT)"
+	@echo "installed openchop $(VERSION) ($(GOOS)/$(GOARCH)) to $(INSTALL_DIR)/openchop$(EXT)"
 
 # --- Changelog ---
 # Requires: git-cliff (https://git-cliff.org/docs/installation)
@@ -100,7 +100,7 @@ release-major: _require-git-cliff
 
 cross:
 	docker compose run --rm dev sh -c "\
-		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/chop-linux-amd64 . && \
-		CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/chop-darwin-amd64 . && \
-		CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags='$(LDFLAGS)' -o bin/chop-darwin-arm64 . && \
-		CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/chop-windows-amd64.exe ."
+		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/openchop-linux-amd64 . && \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/openchop-darwin-amd64 . && \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags='$(LDFLAGS)' -o bin/openchop-darwin-arm64 . && \
+		CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags='$(LDFLAGS)' -o bin/openchop-windows-amd64.exe ."

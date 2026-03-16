@@ -1,0 +1,13 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="90" fill="#f8f9fa" stroke="#343a40" stroke-width="2"/>
+
+  <!-- "OC" for OpenChop -->
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#007bff">OC</text>
+
+  <!-- Chopping line -->
+  <line x1="30" y1="170" x2="170" y2="30" stroke="#dc3545" stroke-width="8" stroke-linecap="round" />
+
+  <!-- Subtitle -->
+  <text x="50%" y="85%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#343a40">OPENCHOP</text>
+</svg>

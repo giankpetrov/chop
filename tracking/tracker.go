@@ -58,7 +58,7 @@ func dbPath() string {
 	if err != nil {
 		home = "."
 	}
-	return filepath.Join(home, ".local", "share", "chop", "tracking.db")
+	return filepath.Join(home, ".local", "share", "openchop", "tracking.db")
 }
 
 // Init opens (or creates) the tracking database and ensures the schema exists.
@@ -477,7 +477,7 @@ func FormatGain(s Stats) string {
 		}
 		return float64(saved) / float64(raw) * 100.0
 	}
-	return fmt.Sprintf(`chop - token savings report
+	return fmt.Sprintf(`openchop - token savings report
 
   today: %d commands   %s tokens saved   (%.1f%% compression)
   week:  %d commands   %s tokens saved   (%.1f%% compression)
@@ -485,7 +485,7 @@ func FormatGain(s Stats) string {
   year:  %d commands   %s tokens saved   (%.1f%% compression)
   total: %d commands   %s tokens saved   (%.1f%% compression)
 
-run 'chop gain --history' for command history`,
+run 'openchop gain --history' for command history`,
 		s.TodayCommands, formatNum(s.TodaySavedTokens), pct(s.TodaySavedTokens, s.TodayRawTokens),
 		s.WeekCommands, formatNum(s.WeekSavedTokens), pct(s.WeekSavedTokens, s.WeekRawTokens),
 		s.MonthCommands, formatNum(s.MonthSavedTokens), pct(s.MonthSavedTokens, s.MonthRawTokens),
@@ -601,13 +601,13 @@ func GetHistorySince(limit int, d time.Duration) ([]Record, error) {
 
 // FormatGainSince formats a stats report for a --since time window.
 func FormatGainSince(s Stats, sinceStr string) string {
-	return fmt.Sprintf(`chop - token savings report (last %s)
+	return fmt.Sprintf(`openchop - token savings report (last %s)
 
   commands: %d
   saved:    %s tokens
   avg:      %.1f%%
 
-run 'chop gain --since %s --history' for command history`,
+run 'openchop gain --since %s --history' for command history`,
 		sinceStr,
 		s.TotalCommands, formatNum(s.TotalSavedTokens), s.OverallSavingsPct,
 		sinceStr,

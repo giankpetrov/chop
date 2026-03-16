@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="AgusRdz/chop"
+REPO="giankpetrov/openchop"
 
 # Detect OS
 OS="$(uname -s)"
@@ -13,14 +13,14 @@ case "$OS" in
 esac
 
 # Set default install dir (Windows uses AppData, Unix uses ~/.local/bin)
-if [ -z "$CHOP_INSTALL_DIR" ]; then
+if [ -z "$OPENCHOP_INSTALL_DIR" ]; then
   if [ "$OS" = "windows" ]; then
-    INSTALL_DIR="$(cygpath "$LOCALAPPDATA/Programs/chop" 2>/dev/null || echo "$HOME/AppData/Local/Programs/chop")"
+    INSTALL_DIR="$(cygpath "$LOCALAPPDATA/Programs/openchop" 2>/dev/null || echo "$HOME/AppData/Local/Programs/openchop")"
   else
     INSTALL_DIR="$HOME/.local/bin"
   fi
 else
-  INSTALL_DIR="$CHOP_INSTALL_DIR"
+  INSTALL_DIR="$OPENCHOP_INSTALL_DIR"
 fi
 
 # Detect architecture
@@ -36,27 +36,27 @@ if [ "$OS" = "windows" ]; then
   EXT=".exe"
 fi
 
-BINARY="chop-${OS}-${ARCH}${EXT}"
+BINARY="openchop-${OS}-${ARCH}${EXT}"
 
 # Get latest version
-if [ -z "$CHOP_VERSION" ]; then
-  CHOP_VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')
+if [ -z "$OPENCHOP_VERSION" ]; then
+  OPENCHOP_VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')
 fi
 
-if [ -z "$CHOP_VERSION" ]; then
+if [ -z "$OPENCHOP_VERSION" ]; then
   echo "failed to determine latest version" >&2
   exit 1
 fi
 
-URL="https://github.com/${REPO}/releases/download/${CHOP_VERSION}/${BINARY}"
+URL="https://github.com/${REPO}/releases/download/${OPENCHOP_VERSION}/${BINARY}"
 
-echo "installing chop ${CHOP_VERSION} (${OS}/${ARCH})..."
+echo "installing openchop ${OPENCHOP_VERSION} (${OS}/${ARCH})..."
 
 mkdir -p "$INSTALL_DIR"
-curl -fsSL "$URL" -o "${INSTALL_DIR}/chop${EXT}"
-chmod +x "${INSTALL_DIR}/chop${EXT}"
+curl -fsSL "$URL" -o "${INSTALL_DIR}/openchop${EXT}"
+chmod +x "${INSTALL_DIR}/openchop${EXT}"
 
-echo "installed chop to ${INSTALL_DIR}/chop${EXT}"
+echo "installed openchop to ${INSTALL_DIR}/openchop${EXT}"
 echo ""
 
 # Check if install dir is in PATH
@@ -84,7 +84,7 @@ case ":$PATH:" in
     if [ -n "$SHELL_RC" ]; then
       # Only add if not already present
       if ! grep -qF "$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
-        printf '\n# chop\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
+        printf '\n# openchop\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
         echo "Added ${INSTALL_DIR} to PATH in $SHELL_RC"
         echo "Reload your shell with: source $SHELL_RC"
       fi
@@ -101,9 +101,9 @@ esac
 echo "Next steps:"
 echo ""
 echo "  # Use directly with any command:"
-echo "  chop git status"
-echo "  chop docker ps"
+echo "  openchop git status"
+echo "  openchop docker ps"
 echo ""
 echo "  # Claude Code hook (auto-rewrite Bash tool calls):"
-echo "  chop init --global"
-echo "  chop init --status    # check if installed"
+echo "  openchop init --global"
+echo "  openchop init --status    # check if installed"

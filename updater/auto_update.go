@@ -12,13 +12,13 @@ import (
 
 const checkInterval = 24 * time.Hour
 
-// dataDir returns ~/.local/share/chop, creating it if needed.
+// dataDir returns ~/.local/share/openchop, creating it if needed.
 func dataDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".local", "share", "chop")
+	dir := filepath.Join(home, ".local", "share", "openchop")
 	os.MkdirAll(dir, 0o755)
 	return dir, nil
 }
@@ -122,7 +122,7 @@ func ApplyPendingUpdate(currentVersion string) {
 	}
 
 	os.Remove(pending)
-	fmt.Fprintf(os.Stderr, "chop: auto-updated %s -> %s\n", currentVersion, newVersion)
+	fmt.Fprintf(os.Stderr, "openchop: auto-updated %s -> %s\n", currentVersion, newVersion)
 }
 
 // replaceBinary atomically replaces the binary at destPath with srcPath.

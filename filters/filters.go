@@ -3,7 +3,7 @@ package filters
 import (
 	"strings"
 
-	"github.com/AgusRdz/chop/config"
+	"github.com/giankpetrov/openchop/config"
 )
 
 // FilterFunc takes raw command output and returns filtered output.

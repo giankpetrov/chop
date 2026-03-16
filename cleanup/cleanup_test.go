@@ -52,8 +52,8 @@ func TestRemoveFile_NonExistent(t *testing.T) {
 func TestConfigDir_DefaultsToHomeConfig(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	dir := configDir()
-	if filepath.Base(dir) != "chop" {
-		t.Errorf("expected last segment to be 'chop', got %q", filepath.Base(dir))
+	if filepath.Base(dir) != "openchop" {
+		t.Errorf("expected last segment to be 'openchop', got %q", filepath.Base(dir))
 	}
 	if filepath.Base(filepath.Dir(dir)) != ".config" {
 		t.Errorf("expected parent to be '.config', got %q", filepath.Base(filepath.Dir(dir)))
@@ -64,7 +64,7 @@ func TestConfigDir_RespectsXDGConfigHome(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 	dir := configDir()
-	expected := filepath.Join(tmp, "chop")
+	expected := filepath.Join(tmp, "openchop")
 	if dir != expected {
 		t.Errorf("expected %q, got %q", expected, dir)
 	}
@@ -72,8 +72,8 @@ func TestConfigDir_RespectsXDGConfigHome(t *testing.T) {
 
 func TestDataDir_UnderHome(t *testing.T) {
 	dir := dataDir()
-	if filepath.Base(dir) != "chop" {
-		t.Errorf("expected last segment to be 'chop', got %q", filepath.Base(dir))
+	if filepath.Base(dir) != "openchop" {
+		t.Errorf("expected last segment to be 'openchop', got %q", filepath.Base(dir))
 	}
 }
 

@@ -8,41 +8,41 @@ import (
 	"strings"
 )
 
-// chopHookIdentifier is used to detect chop hook entries in settings.json.
-// We look for commands containing "chop" that end with " hook".
-const chopBinaryName = "chop"
+// chopHookIdentifier is used to detect openchop hook entries in settings.json.
+// We look for commands containing "openchop" that end with " hook".
+const chopBinaryName = "openchop"
 
-// Install registers the chop hook in ~/.claude/settings.json.
+// Install registers the openchop hook in ~/.claude/settings.json.
 func Install() {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to get home directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to get home directory: %v\n", err)
 		os.Exit(1)
 	}
 	settingsPath := filepath.Join(home, ".claude", "settings.json")
 	if err := installTo(settingsPath); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("chop hook installed in %s\n", settingsPath)
+	fmt.Printf("openchop hook installed in %s\n", settingsPath)
 }
 
-// Uninstall removes the chop hook from ~/.claude/settings.json.
+// Uninstall removes the openchop hook from ~/.claude/settings.json.
 func Uninstall() {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to get home directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to get home directory: %v\n", err)
 		os.Exit(1)
 	}
 	settingsPath := filepath.Join(home, ".claude", "settings.json")
 	if err := uninstallFrom(settingsPath); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("chop hook removed from %s\n", settingsPath)
+	fmt.Printf("openchop hook removed from %s\n", settingsPath)
 }
 
-// IsInstalled checks whether the chop hook is registered in ~/.claude/settings.json.
+// IsInstalled checks whether the openchop hook is registered in ~/.claude/settings.json.
 func IsInstalled() (bool, string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -217,7 +217,7 @@ func isChopHook(hookObj map[string]interface{}) bool {
 	if !ok {
 		return false
 	}
-	// Match commands that reference "chop" and end with " hook"
+	// Match commands that reference "openchop" and end with " hook"
 	return strings.Contains(cmd, chopBinaryName) && strings.HasSuffix(cmd, " hook")
 }
 
@@ -285,7 +285,7 @@ func installWithCommand(settingsPath string, hookCmd string) error {
 			return fmt.Errorf("Bash matcher hooks is not an array")
 		}
 
-		// Check if chop hook already exists - update it
+		// Check if openchop hook already exists - update it
 		chopIdx := -1
 		for i, h := range hooksArray {
 			hMap, ok := h.(map[string]interface{})
@@ -345,7 +345,7 @@ func uninstallFrom(settingsPath string) error {
 		return nil
 	}
 
-	// Find Bash matcher and remove chop hook
+	// Find Bash matcher and remove openchop hook
 	newPreToolUse := make([]interface{}, 0, len(preToolUse))
 	for _, entry := range preToolUse {
 		m, ok := entry.(map[string]interface{})
@@ -359,7 +359,7 @@ func uninstallFrom(settingsPath string) error {
 			continue
 		}
 
-		// Filter out chop hooks from this Bash matcher
+		// Filter out openchop hooks from this Bash matcher
 		hooksArrayRaw, ok := m["hooks"]
 		if !ok {
 			newPreToolUse = append(newPreToolUse, entry)

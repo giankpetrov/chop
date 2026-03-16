@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AgusRdz/chop/hooks"
+	"github.com/giankpetrov/openchop/hooks"
 )
 
 // Uninstall removes everything: hook, data, config, and the binary itself.
@@ -39,7 +39,7 @@ func Uninstall(keepData bool) {
 		}
 	}
 
-	fmt.Println("chop uninstalled")
+	fmt.Println("openchop uninstalled")
 }
 
 // Reset clears data (tracking DB, audit log, tee files) but keeps config, hook, and binary.
@@ -55,16 +55,16 @@ func Reset() {
 	}
 }
 
-// dataDir returns the chop data directory (~/.local/share/chop/).
+// dataDir returns the openchop data directory (~/.local/share/openchop/).
 func dataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
 	}
-	return filepath.Join(home, ".local", "share", "chop")
+	return filepath.Join(home, ".local", "share", "openchop")
 }
 
-// configDir returns the chop config directory, respecting XDG_CONFIG_HOME.
+// configDir returns the openchop config directory, respecting XDG_CONFIG_HOME.
 func configDir() string {
 	dir := os.Getenv("XDG_CONFIG_HOME")
 	if dir == "" {
@@ -74,7 +74,7 @@ func configDir() string {
 		}
 		dir = filepath.Join(home, ".config")
 	}
-	return filepath.Join(dir, "chop")
+	return filepath.Join(dir, "openchop")
 }
 
 // removeDir removes a directory and returns true if it existed.

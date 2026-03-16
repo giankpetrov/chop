@@ -119,7 +119,7 @@ type hookSpecificOutput struct {
 }
 
 // RunHook reads a Claude Code PreToolUse hook payload from stdin,
-// checks if the command should be wrapped with chop, and outputs
+// checks if the command should be wrapped with openchop, and outputs
 // modified JSON on stdout. Always exits 0.
 func RunHook() {
 	input, err := io.ReadAll(os.Stdin)
@@ -177,8 +177,8 @@ func rewriteCommand(command string) (string, bool, string) {
 		return "", false, ""
 	}
 
-	// Already wrapped with chop
-	if strings.HasPrefix(command, "chop ") {
+	// Already wrapped with openchop
+	if strings.HasPrefix(command, "openchop ") {
 		return "", false, command
 	}
 
@@ -196,7 +196,7 @@ func rewriteCommand(command string) (string, bool, string) {
 			for i, seg := range segments {
 				seg = strings.TrimSpace(seg)
 				if shouldWrap(seg) {
-					result[i] = "chop " + seg
+					result[i] = "openchop " + seg
 					modified = true
 				} else {
 					result[i] = seg
@@ -235,12 +235,12 @@ func rewriteCommand(command string) (string, bool, string) {
 		return "", false, command
 	}
 
-	return "chop " + command, true, command
+	return "openchop " + command, true, command
 }
 
-// shouldWrap returns true if a single (non-compound) command should be wrapped with chop.
+// shouldWrap returns true if a single (non-compound) command should be wrapped with openchop.
 func shouldWrap(command string) bool {
-	if strings.HasPrefix(command, "chop ") || strings.HasPrefix(command, ". ") {
+	if strings.HasPrefix(command, "openchop ") || strings.HasPrefix(command, ". ") {
 		return false
 	}
 	for _, prefix := range shellBuiltins {
@@ -318,7 +318,7 @@ func splitLogical(command string) (segments []string, operators []string) {
 }
 
 // wrapCompound splits a compound command on logical operators and wraps each
-// supported segment with chop, reassembling the result.
+// supported segment with openchop, reassembling the result.
 func wrapCompound(command string) ([]byte, bool, string) {
 	segments, operators := splitLogical(command)
 	modified := false
@@ -326,7 +326,7 @@ func wrapCompound(command string) ([]byte, bool, string) {
 	for i, seg := range segments {
 		seg = strings.TrimSpace(seg)
 		if shouldWrap(seg) {
-			result[i] = "chop " + seg
+			result[i] = "openchop " + seg
 			modified = true
 		} else {
 			result[i] = seg
@@ -370,7 +370,7 @@ func auditLog(original, rewritten string) {
 	if err != nil {
 		return
 	}
-	dir := filepath.Join(home, ".local", "share", "chop")
+	dir := filepath.Join(home, ".local", "share", "openchop")
 	os.MkdirAll(dir, 0o700)
 	path := filepath.Join(dir, "hook-audit.log")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
@@ -388,5 +388,5 @@ func AuditLogPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "chop", "hook-audit.log"), nil
+	return filepath.Join(home, ".local", "share", "openchop", "hook-audit.log"), nil
 }
