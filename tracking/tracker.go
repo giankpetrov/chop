@@ -154,7 +154,7 @@ func GetStats() (Stats, error) {
 	today := time.Now().Local().Format("2006-01-02")
 	row = db.QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ? || '%' ESCAPE '\'`,
-		today,
+		escapeLike(today),
 	)
 	if err := row.Scan(&s.TodayCommands, &s.TodayRawTokens, &s.TodaySavedTokens); err != nil {
 		return Stats{}, err
@@ -348,7 +348,8 @@ func DeleteCommand(cmd string) error {
 	}
 	// The tracking table stores full command strings; match on the key prefix.
 	// Key is first two words, so match "cmd" or "cmd ..." (single-word keys too).
-	_, err := db.Exec(`DELETE FROM tracking WHERE command = ? OR command LIKE ? || ' %' ESCAPE '\'`, cmd, escapeLike(cmd))
+	pattern := escapeLike(cmd) + " %"
+	_, err := db.Exec(`DELETE FROM tracking WHERE command = ? OR command LIKE ? ESCAPE '\'`, cmd, pattern)
 	if err != nil {
 		return err
 	}
