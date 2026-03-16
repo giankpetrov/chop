@@ -28,8 +28,8 @@ func TestGeminiHookWrapsShellCommand(t *testing.T) {
 	if result.Decision != "allow" {
 		t.Errorf("expected decision 'allow', got %q", result.Decision)
 	}
-	if !strings.HasPrefix(result.HookSpecificOutput.ToolInput.Command, "chop ") {
-		t.Errorf("expected command to start with 'chop ', got %q", result.HookSpecificOutput.ToolInput.Command)
+	if !strings.HasPrefix(result.HookSpecificOutput.ToolInput.Command, "openchop ") {
+		t.Errorf("expected command to start with 'openchop ', got %q", result.HookSpecificOutput.ToolInput.Command)
 	}
 	if !strings.Contains(result.HookSpecificOutput.ToolInput.Command, "git status") {
 		t.Errorf("expected command to contain 'git status', got %q", result.HookSpecificOutput.ToolInput.Command)
@@ -72,7 +72,7 @@ func TestGeminiHookSkipsAlreadyWrapped(t *testing.T) {
 		"cwd": "/tmp",
 		"hook_event_name": "BeforeTool",
 		"tool_name": "run_shell_command",
-		"tool_input": {"command": "chop git status"}
+		"tool_input": {"command": "openchop git status"}
 	}`
 
 	_, shouldModify, _ := processGeminiHookInput([]byte(input))
@@ -104,7 +104,7 @@ func TestGeminiHookCompoundCommand(t *testing.T) {
 	if !strings.Contains(cmd, "cd /app") {
 		t.Errorf("expected cd to be preserved, got %q", cmd)
 	}
-	if !strings.Contains(cmd, "chop npm test") {
+	if !strings.Contains(cmd, "openchop npm test") {
 		t.Errorf("expected npm test to be wrapped, got %q", cmd)
 	}
 }
@@ -144,7 +144,7 @@ func TestGeminiHookOutputFormat(t *testing.T) {
 	}
 
 	cmd, ok := ti["command"].(string)
-	if !ok || cmd != "chop docker ps" {
-		t.Errorf("expected 'chop docker ps', got %q", cmd)
+	if !ok || cmd != "openchop docker ps" {
+		t.Errorf("expected 'openchop docker ps', got %q", cmd)
 	}
 }

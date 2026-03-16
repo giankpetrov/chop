@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const testHookCmd = `"/usr/local/bin/chop" hook`
+const testHookCmd = `"/usr/local/bin/openchop" hook`
 
 func tempSettingsPath(t *testing.T) string {
 	t.Helper()
@@ -262,7 +262,7 @@ func TestUninstallPreservesOtherHooks(t *testing.T) {
 						},
 						map[string]interface{}{
 							"type":    "command",
-							"command": `"/usr/local/bin/chop" hook`,
+							"command": `"/usr/local/bin/openchop" hook`,
 						},
 					},
 				},
@@ -306,7 +306,7 @@ func TestUninstallPreservesOtherMatchers(t *testing.T) {
 					"hooks": []interface{}{
 						map[string]interface{}{
 							"type":    "command",
-							"command": `"/usr/local/bin/chop" hook`,
+							"command": `"/usr/local/bin/openchop" hook`,
 						},
 					},
 				},
@@ -355,10 +355,10 @@ func TestIsChopHook(t *testing.T) {
 		command string
 		want    bool
 	}{
-		{`"/usr/local/bin/chop" hook`, true},
-		{`"C:/Users/me/bin/chop" hook`, true},
-		{`chop hook`, true},
-		{`"/path/to/chop.exe" hook`, true},
+		{`"/usr/local/bin/openchop" hook`, true},
+		{`"C:/Users/me/bin/openchop" hook`, true},
+		{`openchop hook`, true},
+		{`"/path/to/openchop.exe" hook`, true},
 		{"some-linter hook", false},
 		{"other-command", false},
 	}

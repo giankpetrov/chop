@@ -132,7 +132,7 @@ Changes not staged for commit:
 
 Untracked files:
   (use "git add <file>..." to include in what will be committed)
-	.chop.yml
+	.openchop.yml
 `
 	got, err := filterGitStatus(raw)
 	if err != nil {

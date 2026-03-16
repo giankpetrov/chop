@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-const repo = "AgusRdz/chop"
+const repo = "giankpetrov/openchop"
 
 type ghRelease struct {
 	TagName string `json:"tag_name"`
@@ -25,7 +25,7 @@ func Run(currentVersion string) {
 
 	latest, err := latestVersion()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to check for updates: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to check for updates: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -41,19 +41,19 @@ func Run(currentVersion string) {
 
 	exe, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to find current binary: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to find current binary: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := download(url, exe); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: update failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: update failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Verify checksum (best-effort — skip if checksums.txt not published yet)
 	if err := verifyChecksum(exe, latest, binaryName); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: checksum verification failed: %v\n", err)
-		fmt.Fprintln(os.Stderr, "chop: the downloaded binary may be corrupted — reverting")
+		fmt.Fprintf(os.Stderr, "openchop: checksum verification failed: %v\n", err)
+		fmt.Fprintln(os.Stderr, "openchop: the downloaded binary may be corrupted — reverting")
 		os.Exit(1)
 	}
 
@@ -95,7 +95,7 @@ func buildBinaryName() string {
 	if goos == "windows" {
 		ext = ".exe"
 	}
-	return fmt.Sprintf("chop-%s-%s%s", goos, goarch, ext)
+	return fmt.Sprintf("openchop-%s-%s%s", goos, goarch, ext)
 }
 
 func download(url, destPath string) error {

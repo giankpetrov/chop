@@ -67,7 +67,7 @@ func TestLoadFrom_DisabledWithQuotes(t *testing.T) {
 }
 
 func TestLoadFrom_FullConfig(t *testing.T) {
-	content := "# chop config\ndisabled: [git, docker, kubectl]\n"
+	content := "# openchop config\ndisabled: [git, docker, kubectl]\n"
 	tmp := writeTemp(t, content)
 	cfg := LoadFrom(tmp)
 	if len(cfg.Disabled) != 3 {
@@ -158,9 +158,9 @@ func TestLoadWithLocal_NoLocalFile(t *testing.T) {
 }
 
 func TestLoadWithLocal_OverridesGlobal(t *testing.T) {
-	// Create a project dir with .chop.yml
+	// Create a project dir with .openchop.yml
 	projectDir := t.TempDir()
-	localPath := filepath.Join(projectDir, ".chop.yml")
+	localPath := filepath.Join(projectDir, ".openchop.yml")
 	os.WriteFile(localPath, []byte(`disabled: ["git diff"]`+"\n"), 0o644)
 
 	// LoadFrom for the local file
@@ -205,7 +205,7 @@ func TestPath_XDG(t *testing.T) {
 	defer os.Setenv("XDG_CONFIG_HOME", old)
 
 	p := Path()
-	expected := filepath.Join("/tmp/xdg", "chop", "config.yml")
+	expected := filepath.Join("/tmp/xdg", "openchop", "config.yml")
 	if p != expected {
 		t.Errorf("expected %s, got %s", expected, p)
 	}

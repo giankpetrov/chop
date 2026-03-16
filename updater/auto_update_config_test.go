@@ -76,7 +76,7 @@ func TestNotifyIfUpdateAvailable(t *testing.T) {
 
 	// Scenario 2: Update recorded, auto-update off
 	recordUpdateAvailable(latest)
-	expected := fmt.Sprintf("chop: update available %s -> %s (run 'chop update')\n", current, latest)
+	expected := fmt.Sprintf("openchop: update available %s -> %s (run 'openchop update')\n", current, latest)
 	if output := captureStderr(func() { NotifyIfUpdateAvailable(current) }); output != expected {
 		t.Errorf("got %q, want %q", output, expected)
 	}

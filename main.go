@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AgusRdz/chop/cleanup"
-	"github.com/AgusRdz/chop/config"
-	"github.com/AgusRdz/chop/filters"
-	"github.com/AgusRdz/chop/hooks"
-	"github.com/AgusRdz/chop/tracking"
-	"github.com/AgusRdz/chop/updater"
+	"github.com/giankpetrov/openchop/cleanup"
+	"github.com/giankpetrov/openchop/config"
+	"github.com/giankpetrov/openchop/filters"
+	"github.com/giankpetrov/openchop/hooks"
+	"github.com/giankpetrov/openchop/tracking"
+	"github.com/giankpetrov/openchop/updater"
 )
 
 //go:embed CHANGELOG.md
@@ -44,7 +44,7 @@ func main() {
 		printHelp()
 		return
 	case "--version", "version":
-		fmt.Printf("chop %s\n", version)
+		fmt.Printf("openchop %s\n", version)
 		return
 	case "changelog", "--changelog":
 		runChangelog(os.Args[2:])
@@ -96,26 +96,26 @@ func main() {
 		return
 	case "disable":
 		if hooks.IsDisabledGlobally() {
-			fmt.Println("chop is already disabled")
+			fmt.Println("openchop is already disabled")
 			return
 		}
 		if err := hooks.Disable(); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to disable: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to disable: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("chop disabled — hook will pass through all commands")
-		fmt.Println("run 'chop enable' to resume")
+		fmt.Println("openchop disabled — hook will pass through all commands")
+		fmt.Println("run 'openchop enable' to resume")
 		return
 	case "enable":
 		if !hooks.IsDisabledGlobally() {
-			fmt.Println("chop is already enabled")
+			fmt.Println("openchop is already enabled")
 			return
 		}
 		if err := hooks.Enable(); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to enable: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to enable: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("chop enabled — hook will compress commands again")
+		fmt.Println("openchop enabled — hook will compress commands again")
 		return
 	case "doctor":
 		runDoctor()
@@ -134,7 +134,7 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--aider|--uninstall|--status>")
+			fmt.Fprintln(os.Stderr, "usage: openchop init <--global|--gemini|--aider|--uninstall|--status>")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -150,13 +150,13 @@ func main() {
 				case "--status":
 					installed, path := hooks.GeminiIsInstalled()
 					if installed {
-						fmt.Printf("chop Gemini CLI hook is installed (%s)\n", path)
+						fmt.Printf("openchop Gemini CLI hook is installed (%s)\n", path)
 					} else {
-						fmt.Printf("chop Gemini CLI hook is NOT installed\n")
-						fmt.Println("run 'chop init --gemini' to install")
+						fmt.Printf("openchop Gemini CLI hook is NOT installed\n")
+						fmt.Println("run 'openchop init --gemini' to install")
 					}
 				default:
-					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init --gemini [--uninstall|--status]\n", os.Args[3])
+					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: openchop init --gemini [--uninstall|--status]\n", os.Args[3])
 					os.Exit(1)
 				}
 			} else {
@@ -167,17 +167,17 @@ func main() {
 		case "--status":
 			installed, path := hooks.IsInstalled()
 			if installed {
-				fmt.Printf("chop hook is installed (%s)\n", path)
+				fmt.Printf("openchop hook is installed (%s)\n", path)
 			} else {
-				fmt.Printf("chop hook is NOT installed\n")
-				fmt.Println("run 'chop init --global' to install")
+				fmt.Printf("openchop hook is NOT installed\n")
+				fmt.Println("run 'openchop init --global' to install")
 			}
 			gInstalled, gPath := hooks.GeminiIsInstalled()
 			if gInstalled {
-				fmt.Printf("chop Gemini CLI hook is installed (%s)\n", gPath)
+				fmt.Printf("openchop Gemini CLI hook is installed (%s)\n", gPath)
 			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--aider|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: openchop init <--global|--gemini|--aider|--uninstall|--status>\n", os.Args[2])
 			os.Exit(1)
 		}
 		return
@@ -202,7 +202,7 @@ func main() {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			fmt.Fprintf(os.Stderr, "chop: failed to run %s: %v\n", command, err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to run %s: %v\n", command, err)
 			os.Exit(1)
 		}
 	}
@@ -260,7 +260,7 @@ func trackSilent(command, raw, filtered string) {
 
 func runCapture(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: chop capture <command> [args...]")
+		fmt.Fprintln(os.Stderr, "usage: openchop capture <command> [args...]")
 		os.Exit(1)
 	}
 
@@ -276,7 +276,7 @@ func runCapture(args []string) {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			fmt.Fprintf(os.Stderr, "chop: failed to run %s: %v\n", command, err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to run %s: %v\n", command, err)
 			os.Exit(1)
 		}
 	}
@@ -298,13 +298,13 @@ func runCapture(args []string) {
 
 	fixtureDir := filepath.Join("tests", "fixtures")
 	if err := os.MkdirAll(fixtureDir, 0o700); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to create fixtures dir: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to create fixtures dir: %v\n", err)
 		os.Exit(1)
 	}
 
 	rawPath := filepath.Join(fixtureDir, baseName+".txt")
 	if err := os.WriteFile(rawPath, []byte(raw), 0o600); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to write raw fixture: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to write raw fixture: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stderr, "raw:      %s\n", rawPath)
@@ -316,7 +316,7 @@ func runCapture(args []string) {
 		if ferr == nil {
 			filteredPath := filepath.Join(fixtureDir, baseName+".filtered.txt")
 			if err := os.WriteFile(filteredPath, []byte(filtered), 0o600); err != nil {
-				fmt.Fprintf(os.Stderr, "chop: failed to write filtered fixture: %v\n", err)
+				fmt.Fprintf(os.Stderr, "openchop: failed to write filtered fixture: %v\n", err)
 			} else {
 				fmt.Fprintf(os.Stderr, "filtered: %s\n", filteredPath)
 			}
@@ -344,9 +344,9 @@ func runConfig(args []string) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Println("(no config file found)")
-			fmt.Println("\nrun 'chop config init' to create a starter config")
+			fmt.Println("\nrun 'openchop config init' to create a starter config")
 		} else {
-			fmt.Fprintf(os.Stderr, "chop: failed to read config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read config: %v\n", err)
 		}
 		return
 	}
@@ -369,15 +369,15 @@ func initConfig() {
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to create config dir: %v\n", err)
 		os.Exit(1)
 	}
 
-	starter := `# Global chop config
-# Docs: https://github.com/AgusRdz/chop#configuration
+	starter := `# Global openchop config
+# Docs: https://github.com/giankpetrov/openchop#configuration
 #
 # Disable built-in filters for specific commands globally.
-# Use "chop local add" to disable per-project instead.
+# Use "openchop local add" to disable per-project instead.
 #
 # disabled: ["git diff", "docker ps"]
 
@@ -385,7 +385,7 @@ disabled: []
 `
 
 	if err := os.WriteFile(path, []byte(starter), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to write config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to write config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -461,7 +461,7 @@ func runGain(args []string) {
 	if sinceStr != "" {
 		d, err := tracking.ParseSinceDuration(sinceStr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: invalid duration %q — use formats like 7d, 2w, 24h, 30m\n", sinceStr)
+			fmt.Fprintf(os.Stderr, "openchop: invalid duration %q — use formats like 7d, 2w, 24h, 30m\n", sinceStr)
 			os.Exit(1)
 		}
 		sinceDuration = d
@@ -469,7 +469,7 @@ func runGain(args []string) {
 
 	if exportFormat != "" {
 		if exportFormat != "json" && exportFormat != "csv" {
-			fmt.Fprintf(os.Stderr, "chop: unknown export format %q — use json or csv\n", exportFormat)
+			fmt.Fprintf(os.Stderr, "openchop: unknown export format %q — use json or csv\n", exportFormat)
 			os.Exit(1)
 		}
 		var records []tracking.Record
@@ -481,7 +481,7 @@ func runGain(args []string) {
 			records, err = tracking.GetHistory(10000)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read history: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read history: %v\n", err)
 			os.Exit(1)
 		}
 		if sinceDuration > 0 {
@@ -490,17 +490,17 @@ func runGain(args []string) {
 			stats, err = tracking.GetStats()
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read stats: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read stats: %v\n", err)
 			os.Exit(1)
 		}
 		if exportFormat == "json" {
 			if err := tracking.ExportJSON(os.Stdout, records, stats); err != nil {
-				fmt.Fprintf(os.Stderr, "chop: export failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "openchop: export failed: %v\n", err)
 				os.Exit(1)
 			}
 		} else {
 			if err := tracking.ExportCSV(os.Stdout, records); err != nil {
-				fmt.Fprintf(os.Stderr, "chop: export failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "openchop: export failed: %v\n", err)
 				os.Exit(1)
 			}
 		}
@@ -509,7 +509,7 @@ func runGain(args []string) {
 
 	if deleteCmd != "" {
 		if err := tracking.DeleteCommand(deleteCmd); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to delete command: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to delete command: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("deleted all records for %q\n", deleteCmd)
@@ -518,11 +518,11 @@ func runGain(args []string) {
 
 	if noTrackCmd != "" {
 		if err := tracking.DeleteCommand(noTrackCmd); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to delete records: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to delete records: %v\n", err)
 			os.Exit(1)
 		}
 		if err := tracking.AddTrackingSkip(noTrackCmd); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to add no-track entry: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to add no-track entry: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("%q removed from history and will no longer be tracked\n", noTrackCmd)
@@ -531,7 +531,7 @@ func runGain(args []string) {
 
 	if resumeTrackCmd != "" {
 		if err := tracking.RemoveTrackingSkip(resumeTrackCmd); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to remove no-track entry: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to remove no-track entry: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("%q will be tracked again\n", resumeTrackCmd)
@@ -541,19 +541,19 @@ func runGain(args []string) {
 	if showUnchopped {
 		if skipCmd != "" {
 			if err := tracking.SkipUnchopped(skipCmd); err != nil {
-				fmt.Fprintf(os.Stderr, "chop: failed to skip command: %v\n", err)
+				fmt.Fprintf(os.Stderr, "openchop: failed to skip command: %v\n", err)
 				os.Exit(1)
 			}
 		}
 		if unskipCmd != "" {
 			if err := tracking.UnskipUnchopped(unskipCmd); err != nil {
-				fmt.Fprintf(os.Stderr, "chop: failed to unskip command: %v\n", err)
+				fmt.Fprintf(os.Stderr, "openchop: failed to unskip command: %v\n", err)
 				os.Exit(1)
 			}
 		}
 		summaries, err := tracking.GetUnchopped()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read unchopped: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read unchopped: %v\n", err)
 			os.Exit(1)
 		}
 		// Auto-exclude commands that already have a registered filter -
@@ -569,7 +569,7 @@ func runGain(args []string) {
 		}
 		skipped, err := tracking.GetSkippedCommands()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read skip list: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read skip list: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Print(tracking.FormatUnchopped(candidates, skipped, filteredCmds, verbose))
@@ -589,7 +589,7 @@ func runGain(args []string) {
 			records, err = tracking.GetHistory(limit)
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read history: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read history: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Print(tracking.FormatHistory(records, verbose))
@@ -599,7 +599,7 @@ func runGain(args []string) {
 	if showSummary {
 		summaries, err := tracking.GetCommandSummary()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read summary: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read summary: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Print(tracking.FormatSummary(summaries))
@@ -609,7 +609,7 @@ func runGain(args []string) {
 	if sinceDuration > 0 {
 		stats, err := tracking.GetStatsSince(sinceDuration)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read stats: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read stats: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Println(tracking.FormatGainSince(stats, sinceStr))
@@ -617,7 +617,7 @@ func runGain(args []string) {
 	}
 	stats, err := tracking.GetStats()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to read stats: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to read stats: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(tracking.FormatGain(stats))
@@ -629,8 +629,8 @@ func runAutoUpdate(args []string) {
 			fmt.Println("auto-update: on")
 		} else {
 			fmt.Println("auto-update: off")
-			fmt.Println("chop will notify you when updates are available")
-			fmt.Println("run 'chop auto-update on' to enable automatic updates")
+			fmt.Println("openchop will notify you when updates are available")
+			fmt.Println("run 'openchop auto-update on' to enable automatic updates")
 		}
 		return
 	}
@@ -642,22 +642,22 @@ func runAutoUpdate(args []string) {
 			return
 		}
 		if err := updater.SetAutoUpdate(true); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to enable auto-update: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to enable auto-update: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("auto-update enabled — chop will update itself in the background")
+		fmt.Println("auto-update enabled — openchop will update itself in the background")
 	case "off":
 		if !updater.IsAutoUpdateEnabled() {
 			fmt.Println("auto-update is already off")
 			return
 		}
 		if err := updater.SetAutoUpdate(false); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to disable auto-update: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to disable auto-update: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("auto-update disabled — run 'chop update' to update manually")
+		fmt.Println("auto-update disabled — run 'openchop update' to update manually")
 	default:
-		fmt.Fprintf(os.Stderr, "usage: chop auto-update [on|off]\n")
+		fmt.Fprintf(os.Stderr, "usage: openchop auto-update [on|off]\n")
 		os.Exit(1)
 	}
 }
@@ -672,7 +672,7 @@ func runHookAudit(args []string) {
 
 	logPath, err := hooks.AuditLogPath()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "chop: cannot determine audit log path")
+		fmt.Fprintln(os.Stderr, "openchop: cannot determine audit log path")
 		os.Exit(1)
 	}
 
@@ -682,7 +682,7 @@ func runHookAudit(args []string) {
 				fmt.Println("audit log already empty")
 				return
 			}
-			fmt.Fprintf(os.Stderr, "chop: failed to clear audit log: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to clear audit log: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Println("audit log cleared")
@@ -695,7 +695,7 @@ func runHookAudit(args []string) {
 			fmt.Println("no hook audit log yet")
 			return
 		}
-		fmt.Fprintf(os.Stderr, "chop: failed to read audit log: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to read audit log: %v\n", err)
 		os.Exit(1)
 	}
 	defer f.Close()
@@ -721,7 +721,7 @@ func runHookAudit(args []string) {
 	}
 }
 
-const localConfigFile = ".chop.yml"
+const localConfigFile = ".openchop.yml"
 
 func runLocal(args []string) {
 	if len(args) == 0 {
@@ -732,20 +732,20 @@ func runLocal(args []string) {
 	switch args[0] {
 	case "add":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop local add <command>")
+			fmt.Fprintln(os.Stderr, "usage: openchop local add <command>")
 			os.Exit(1)
 		}
 		localAdd(args[1:])
 	case "remove":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop local remove <command>")
+			fmt.Fprintln(os.Stderr, "usage: openchop local remove <command>")
 			os.Exit(1)
 		}
 		localRemove(args[1:])
 	case "clear":
 		localClear()
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop local [add|remove|clear]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: openchop local [add|remove|clear]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -754,10 +754,10 @@ func showLocalConfig() {
 	data, err := os.ReadFile(localConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("no local config (.chop.yml)")
+			fmt.Println("no local config (.openchop.yml)")
 			return
 		}
-		fmt.Fprintf(os.Stderr, "chop: failed to read %s: %v\n", localConfigFile, err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to read %s: %v\n", localConfigFile, err)
 		os.Exit(1)
 	}
 	content := strings.TrimSpace(string(data))
@@ -822,7 +822,7 @@ func localClear() {
 			fmt.Println("no local config to clear")
 			return
 		}
-		fmt.Fprintf(os.Stderr, "chop: failed to remove %s: %v\n", localConfigFile, err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to remove %s: %v\n", localConfigFile, err)
 		os.Exit(1)
 	}
 	fmt.Println("local config removed")
@@ -840,7 +840,7 @@ func writeLocalConfig(disabled []string) {
 	b.WriteString("]\n")
 
 	if err := os.WriteFile(localConfigFile, []byte(b.String()), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", localConfigFile, err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to write %s: %v\n", localConfigFile, err)
 		os.Exit(1)
 	}
 }
@@ -869,14 +869,14 @@ func ensureGitignore() {
 	}
 	defer f.Close()
 
-	// Add spacing before the chop section
+	// Add spacing before the openchop section
 	if len(content) > 0 && content[len(content)-1] != '\n' {
 		fmt.Fprintln(f)
 	}
 	if len(content) > 0 {
 		fmt.Fprintln(f)
 	}
-	fmt.Fprintln(f, "# chop")
+	fmt.Fprintln(f, "# openchop")
 	for _, entry := range toAdd {
 		fmt.Fprintln(f, entry)
 	}
@@ -913,8 +913,8 @@ func runList() {
 
 func runDiff(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: chop diff <command> [args...]")
-		fmt.Fprintln(os.Stderr, "       echo 'output' | chop diff --stdin <command> [subcommand]")
+		fmt.Fprintln(os.Stderr, "usage: openchop diff <command> [args...]")
+		fmt.Fprintln(os.Stderr, "       echo 'output' | openchop diff --stdin <command> [subcommand]")
 		os.Exit(1)
 	}
 
@@ -924,14 +924,14 @@ func runDiff(args []string) {
 
 	if args[0] == "--stdin" {
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop diff --stdin <command> [subcommand]")
+			fmt.Fprintln(os.Stderr, "usage: openchop diff --stdin <command> [subcommand]")
 			os.Exit(1)
 		}
 		command = args[1]
 		cmdArgs = args[2:]
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to read stdin: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to read stdin: %v\n", err)
 			os.Exit(1)
 		}
 		raw = string(input)
@@ -943,7 +943,7 @@ func runDiff(args []string) {
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			if _, ok := err.(*exec.ExitError); !ok {
-				fmt.Fprintf(os.Stderr, "chop: failed to run %s: %v\n", command, err)
+				fmt.Fprintf(os.Stderr, "openchop: failed to run %s: %v\n", command, err)
 				os.Exit(1)
 			}
 		}
@@ -1042,24 +1042,24 @@ func runFilter(args []string) {
 		initFiltersConfig(local)
 	case "add":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop filter add <command> [--keep p1,p2] [--drop p1,p2] [--head N] [--tail N] [--exec script] [--local]")
+			fmt.Fprintln(os.Stderr, "usage: openchop filter add <command> [--keep p1,p2] [--drop p1,p2] [--head N] [--tail N] [--exec script] [--local]")
 			os.Exit(1)
 		}
 		filterAdd(args[1:])
 	case "remove":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop filter remove <command> [--local]")
+			fmt.Fprintln(os.Stderr, "usage: openchop filter remove <command> [--local]")
 			os.Exit(1)
 		}
 		filterRemove(args[1:])
 	case "test":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: chop filter test <command> [subcommand]")
+			fmt.Fprintln(os.Stderr, "usage: openchop filter test <command> [subcommand]")
 			os.Exit(1)
 		}
 		testFilter(args[1:])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop filter [path|init|add|remove|test]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: openchop filter [path|init|add|remove|test]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -1071,8 +1071,8 @@ func showFilters() {
 	filters := config.LoadCustomFilters()
 	if len(filters) == 0 {
 		fmt.Println("no custom filters defined")
-		fmt.Println("\nrun 'chop filter init' to create a global config")
-		fmt.Println("run 'chop filter init --local' to create a project-level config")
+		fmt.Println("\nrun 'openchop filter init' to create a global config")
+		fmt.Println("run 'openchop filter init --local' to create a project-level config")
 		return
 	}
 
@@ -1100,7 +1100,7 @@ func initFiltersConfig(local bool) {
 	var path string
 	if local {
 		cwd, _ := os.Getwd()
-		path = filepath.Join(cwd, ".chop-filters.yml")
+		path = filepath.Join(cwd, ".openchop-filters.yml")
 	} else {
 		path = config.FiltersConfigPath()
 	}
@@ -1114,13 +1114,13 @@ func initFiltersConfig(local bool) {
 	if !local {
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to create config dir: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
-	starter := `# Custom chop filters - user-defined output compression rules
-# Docs: https://github.com/AgusRdz/chop#custom-filters
+	starter := `# Custom openchop filters - user-defined output compression rules
+# Docs: https://github.com/giankpetrov/openchop#custom-filters
 #
 # Each filter matches a command (or "command subcommand") and applies rules:
 #   keep: [regex...]   - only keep lines matching at least one pattern
@@ -1141,13 +1141,13 @@ func initFiltersConfig(local bool) {
 #     tail: 20
 #
 #   "custom-tool":
-#     exec: "~/.config/chop/scripts/custom-tool.sh"
+#     exec: "~/.config/openchop/scripts/custom-tool.sh"
 
 filters: {}
 `
 
 	if err := os.WriteFile(path, []byte(starter), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to write config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to write config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -1159,7 +1159,7 @@ filters: {}
 func filterConfigPath(local bool) string {
 	if local {
 		cwd, _ := os.Getwd()
-		return filepath.Join(cwd, ".chop-filters.yml")
+		return filepath.Join(cwd, ".openchop-filters.yml")
 	}
 	return config.FiltersConfigPath()
 }
@@ -1198,7 +1198,7 @@ func writeFilters(path string, filters map[string]config.CustomFilter) {
 	}
 
 	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to write %s: %v\n", path, err)
 		os.Exit(1)
 	}
 }
@@ -1226,35 +1226,35 @@ func filterAdd(args []string) {
 		switch rest[i] {
 		case "--keep":
 			if i+1 >= len(rest) {
-				fmt.Fprintln(os.Stderr, "chop: --keep requires a value")
+				fmt.Fprintln(os.Stderr, "openchop: --keep requires a value")
 				os.Exit(1)
 			}
 			i++
 			keep = strings.Split(rest[i], ",")
 		case "--drop":
 			if i+1 >= len(rest) {
-				fmt.Fprintln(os.Stderr, "chop: --drop requires a value")
+				fmt.Fprintln(os.Stderr, "openchop: --drop requires a value")
 				os.Exit(1)
 			}
 			i++
 			drop = strings.Split(rest[i], ",")
 		case "--head":
 			if i+1 >= len(rest) {
-				fmt.Fprintln(os.Stderr, "chop: --head requires a value")
+				fmt.Fprintln(os.Stderr, "openchop: --head requires a value")
 				os.Exit(1)
 			}
 			i++
 			fmt.Sscanf(rest[i], "%d", &head)
 		case "--tail":
 			if i+1 >= len(rest) {
-				fmt.Fprintln(os.Stderr, "chop: --tail requires a value")
+				fmt.Fprintln(os.Stderr, "openchop: --tail requires a value")
 				os.Exit(1)
 			}
 			i++
 			fmt.Sscanf(rest[i], "%d", &tail)
 		case "--exec":
 			if i+1 >= len(rest) {
-				fmt.Fprintln(os.Stderr, "chop: --exec requires a value")
+				fmt.Fprintln(os.Stderr, "openchop: --exec requires a value")
 				os.Exit(1)
 			}
 			i++
@@ -1262,13 +1262,13 @@ func filterAdd(args []string) {
 		case "--local":
 			local = true
 		default:
-			fmt.Fprintf(os.Stderr, "chop: unknown flag %q\n", rest[i])
+			fmt.Fprintf(os.Stderr, "openchop: unknown flag %q\n", rest[i])
 			os.Exit(1)
 		}
 	}
 
 	if len(keep) == 0 && len(drop) == 0 && head == 0 && tail == 0 && exec == "" {
-		fmt.Fprintln(os.Stderr, "chop: filter add requires at least one rule (--keep, --drop, --head, --tail, --exec)")
+		fmt.Fprintln(os.Stderr, "openchop: filter add requires at least one rule (--keep, --drop, --head, --tail, --exec)")
 		os.Exit(1)
 	}
 
@@ -1277,7 +1277,7 @@ func filterAdd(args []string) {
 	if !local {
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
+			fmt.Fprintf(os.Stderr, "openchop: failed to create config dir: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -1342,13 +1342,13 @@ func testFilter(args []string) {
 	// Read stdin
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: failed to read stdin: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: failed to read stdin: %v\n", err)
 		os.Exit(1)
 	}
 
 	result, err := fn(string(input))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "chop: filter error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "openchop: filter error: %v\n", err)
 		fmt.Print(string(input))
 		os.Exit(1)
 	}
@@ -1410,21 +1410,21 @@ func checkInstallDir() {
 	}
 
 	oldDir := filepath.Join(home, "bin")
-	if !strings.HasPrefix(exe, oldDir+string(filepath.Separator)) && exe != filepath.Join(oldDir, "chop") && exe != filepath.Join(oldDir, "chop.exe") {
+	if !strings.HasPrefix(exe, oldDir+string(filepath.Separator)) && exe != filepath.Join(oldDir, "openchop") && exe != filepath.Join(oldDir, "openchop.exe") {
 		return
 	}
 
 	fmt.Println("")
-	fmt.Println("note: chop is installed in ~/bin, which is no longer the recommended location.")
+	fmt.Println("note: openchop is installed in ~/bin, which is no longer the recommended location.")
 
 	if runtime.GOOS == "windows" {
-		fmt.Println("run the migration script to move it to %LOCALAPPDATA%\\Programs\\chop:")
+		fmt.Println("run the migration script to move it to %LOCALAPPDATA%\\Programs\\openchop:")
 		fmt.Println("")
-		fmt.Println("  irm https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.ps1 | iex")
+		fmt.Println("  irm https://raw.githubusercontent.com/giankpetrov/openchop/main/migrate.ps1 | iex")
 	} else {
 		fmt.Println("run the migration script to move it to ~/.local/bin:")
 		fmt.Println("")
-		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
+		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/giankpetrov/openchop/main/migrate.sh | sh")
 	}
 }
 
@@ -1435,7 +1435,7 @@ func runDoctor() {
 	installed, _ := hooks.IsInstalled()
 	if !installed {
 		fmt.Println("[!] hook is not installed")
-		fmt.Println("    fix: chop init --global")
+		fmt.Println("    fix: openchop init --global")
 		issues++
 	} else {
 		// 2. Check if hook path matches current binary
@@ -1463,19 +1463,19 @@ func runDoctor() {
 			if strings.HasPrefix(exe, oldDir+string(filepath.Separator)) {
 				fmt.Println("[!] binary is in legacy ~/bin location")
 				if runtime.GOOS == "windows" {
-					fmt.Println("    fix: irm https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.ps1 | iex")
+					fmt.Println("    fix: irm https://raw.githubusercontent.com/giankpetrov/openchop/main/migrate.ps1 | iex")
 				} else {
-					fmt.Println("    fix: curl -fsSL https://raw.githubusercontent.com/AgusRdz/chop/main/migrate.sh | sh")
+					fmt.Println("    fix: curl -fsSL https://raw.githubusercontent.com/giankpetrov/openchop/main/migrate.sh | sh")
 				}
 				issues++
 			}
 		}
 	}
 
-	// 4. Check if chop is disabled
+	// 4. Check if openchop is disabled
 	if hooks.IsDisabledGlobally() {
-		fmt.Println("[!] chop is disabled — hook is passing through all commands")
-		fmt.Println("    fix: chop enable")
+		fmt.Println("[!] openchop is disabled — hook is passing through all commands")
+		fmt.Println("    fix: openchop enable")
 		issues++
 	}
 
@@ -1500,11 +1500,11 @@ func buildExpectedHookCmd() (string, error) {
 }
 
 func printHelp() {
-	fmt.Printf(`chop %s - CLI output compressor for Claude Code
+	fmt.Printf(`openchop %s - CLI output compressor for Claude Code
 
 Usage:
-  chop <command> [args...]    Run command and compress output
-  chop <subcommand>           Run a chop subcommand
+  openchop <command> [args...]    Run command and compress output
+  openchop <subcommand>           Run a openchop subcommand
 
 Subcommands:
   gain                        Show token savings stats
@@ -1539,20 +1539,20 @@ Subcommands:
   reset                       Clear data (tracking, audit log) - keep installation
   filter                      List custom user-defined filters
   filter path                 Show filters config file path
-  filter init                 Create a starter ~/.config/chop/filters.yml
-  filter init --local         Create a starter .chop-filters.yml in current dir
+  filter init                 Create a starter ~/.config/openchop/filters.yml
+  filter init --local         Create a starter .openchop-filters.yml in current dir
   filter add <cmd> [flags]    Add or update a filter (--keep, --drop, --head, --tail, --exec, --local)
   filter remove <cmd>         Remove a filter (--local for project-level)
   filter test <cmd>           Test a custom filter (reads stdin)
   list                        List all built-in filters
   diff <cmd> [args...]        Run command and show raw vs filtered output side-by-side
   diff --stdin <cmd>          Read from stdin and show raw vs filtered comparison
-  local                       Show local project config (.chop.yml)
+  local                       Show local project config (.openchop.yml)
   local add "git diff"        Disable a command in this project
   local remove "git diff"     Re-enable a command in this project
   local clear                 Remove local config
-  disable                     Bypass chop — hook passes through all commands
-  enable                      Resume chop — hook compresses commands again
+  disable                     Bypass openchop — hook passes through all commands
+  enable                      Resume openchop — hook compresses commands again
   doctor                      Check and fix common issues (hook path, install location)
   changelog                   Show changes in the current version
   changelog --full            Show full changelog history
@@ -1565,27 +1565,27 @@ Subcommands:
   version                     Show version
 
 Claude Code integration:
-  chop init --global          Register PreToolUse hook for Claude Code
-  chop init --uninstall       Remove the hook
-  chop init --status          Check hook installation status
+  openchop init --global          Register PreToolUse hook for Claude Code
+  openchop init --uninstall       Remove the hook
+  openchop init --status          Check hook installation status
 
 Gemini CLI integration:
-  chop init --gemini          Register BeforeTool hook for Gemini CLI
-  chop init --gemini --uninstall  Remove the hook
-  chop init --gemini --status     Check hook installation status
+  openchop init --gemini          Register BeforeTool hook for Gemini CLI
+  openchop init --gemini --uninstall  Remove the hook
+  openchop init --gemini --status     Check hook installation status
 
 Aider integration:
-  chop init --aider           Show Aider integration instructions
+  openchop init --aider           Show Aider integration instructions
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
 
-Local config (.chop.yml in project dir - managed via chop local):
+Local config (.openchop.yml in project dir - managed via openchop local):
   disabled: ["git diff"]        Overrides global disabled list for this project
 
 Custom filters (%s):
   Define your own output compression rules for any command.
-  Run 'chop filter init' to create a starter config with examples.
+  Run 'openchop filter init' to create a starter config with examples.
 
   Rules (applied in order):
     keep: [regex...]   Only keep lines matching at least one pattern
@@ -1594,14 +1594,14 @@ Custom filters (%s):
     tail: N            Keep last N lines (after keep/drop)
     exec: script       Pipe output through an external script
 
-  Test with: echo "sample output" | chop filter test <command>
+  Test with: echo "sample output" | openchop filter test <command>
 
 Examples:
-  chop git status             Compressed git status
-  chop docker ps              Compact container list
-  chop kubectl get pods       Filtered pod table
-  chop curl https://api.io    Auto-compressed JSON response
-  chop cat app.log            Pattern-grouped log lines with repeat counts
-  chop tail -f app.log        Same, for streaming log files
+  openchop git status             Compressed git status
+  openchop docker ps              Compact container list
+  openchop kubectl get pods       Filtered pod table
+  openchop curl https://api.io    Auto-compressed JSON response
+  openchop cat app.log            Pattern-grouped log lines with repeat counts
+  openchop tail -f app.log        Same, for streaming log files
 `, version, config.Path(), config.FiltersConfigPath())
 }

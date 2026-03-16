@@ -9,4 +9,4 @@ RUN go mod download 2>/dev/null || true
 
 COPY . .
 
-CMD ["go", "build", "-o", "bin/chop", "."]
+CMD ["go", "build", "-o", "bin/openchop", "."]

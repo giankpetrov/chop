@@ -1,15 +1,15 @@
 $ErrorActionPreference = "Stop"
 
 $OldDir = "$env:USERPROFILE\bin"
-$NewDir = "$env:LOCALAPPDATA\Programs\chop"
-$Binary = "chop.exe"
+$NewDir = "$env:LOCALAPPDATA\Programs\openchop"
+$Binary = "openchop.exe"
 
-Write-Host "chop migration: $OldDir -> $NewDir"
+Write-Host "openchop migration: $OldDir -> $NewDir"
 Write-Host ""
 
 $OldPath = Join-Path $OldDir $Binary
 if (-not (Test-Path $OldPath)) {
-    Write-Host "chop not found in $OldDir — nothing to migrate."
+    Write-Host "openchop not found in $OldDir — nothing to migrate."
     exit 0
 }
 

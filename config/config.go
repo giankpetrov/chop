@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Config holds user preferences loaded from ~/.config/chop/config.yml.
+// Config holds user preferences loaded from ~/.config/openchop/config.yml.
 type Config struct {
 	Disabled []string
 }
@@ -21,7 +21,7 @@ func Path() string {
 		}
 		dir = filepath.Join(home, ".config")
 	}
-	return filepath.Join(dir, "chop", "config.yml")
+	return filepath.Join(dir, "openchop", "config.yml")
 }
 
 // Load reads the config file and returns a Config.
@@ -64,7 +64,7 @@ func (c Config) IsDisabled(command string, args ...string) bool {
 	return false
 }
 
-// LoadWithLocal loads the global config, then overlays a local .chop.yml
+// LoadWithLocal loads the global config, then overlays a local .openchop.yml
 // from the given directory (if it exists). The local disabled list fully
 // replaces the global one.
 func LoadWithLocal(cwd string) Config {
@@ -72,7 +72,7 @@ func LoadWithLocal(cwd string) Config {
 	if cwd == "" {
 		return cfg
 	}
-	localPath := filepath.Join(cwd, ".chop.yml")
+	localPath := filepath.Join(cwd, ".openchop.yml")
 	if _, err := os.Stat(localPath); err != nil {
 		return cfg
 	}

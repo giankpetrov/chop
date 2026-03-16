@@ -29,29 +29,29 @@ func TestSupportedCommandGetsPrepended(t *testing.T) {
 		cmd      string
 		expected string
 	}{
-		{"npm test", "chop npm test"},
-		{"git status", "chop git status"},
-		{"docker ps", "chop docker ps"},
-		{"kubectl get pods", "chop kubectl get pods"},
-		{"cargo build", "chop cargo build"},
-		{"go test ./...", "chop go test ./..."},
-		{"curl https://api.io", "chop curl https://api.io"},
-		{"dotnet build", "chop dotnet build"},
-		{"cat /var/log/syslog", "chop cat /var/log/syslog"},
-		{"tail -f /var/log/app.log", "chop tail -f /var/log/app.log"},
-		{"find . -name '*.go'", "chop find . -name '*.go'"},
-		{`"/usr/bin/npm" install`, `chop "/usr/bin/npm" install`},
-		{`'/usr/bin/npm' install`, `chop '/usr/bin/npm' install`},
-		{`"C:\Program Files\nodejs\npm.exe" install`, `chop "C:\Program Files\nodejs\npm.exe" install`},
-		{`'C:\Program Files\nodejs\npm.exe' install`, `chop 'C:\Program Files\nodejs\npm.exe' install`},
-		{`npm.exe install`, `chop npm.exe install`},
-		{`"npm.exe" install`, `chop "npm.exe" install`},
-		{`"npm" install`, `chop "npm" install`},
-		{`'npm' install`, `chop 'npm' install`},
+		{"npm test", "openchop npm test"},
+		{"git status", "openchop git status"},
+		{"docker ps", "openchop docker ps"},
+		{"kubectl get pods", "openchop kubectl get pods"},
+		{"cargo build", "openchop cargo build"},
+		{"go test ./...", "openchop go test ./..."},
+		{"curl https://api.io", "openchop curl https://api.io"},
+		{"dotnet build", "openchop dotnet build"},
+		{"cat /var/log/syslog", "openchop cat /var/log/syslog"},
+		{"tail -f /var/log/app.log", "openchop tail -f /var/log/app.log"},
+		{"find . -name '*.go'", "openchop find . -name '*.go'"},
+		{`"/usr/bin/npm" install`, `openchop "/usr/bin/npm" install`},
+		{`'/usr/bin/npm' install`, `openchop '/usr/bin/npm' install`},
+		{`"C:\Program Files\nodejs\npm.exe" install`, `openchop "C:\Program Files\nodejs\npm.exe" install`},
+		{`'C:\Program Files\nodejs\npm.exe' install`, `openchop 'C:\Program Files\nodejs\npm.exe' install`},
+		{`npm.exe install`, `openchop npm.exe install`},
+		{`"npm.exe" install`, `openchop "npm.exe" install`},
+		{`"npm" install`, `openchop "npm" install`},
+		{`'npm' install`, `openchop 'npm' install`},
 		// fd-style redirects must not block wrapping
-		{`npm run test 2>&1`, `chop npm run test 2>&1`},
-		{`npm test -- --watch=false 2>&1`, `chop npm test -- --watch=false 2>&1`},
-		{`go test ./... 2>&1`, `chop go test ./... 2>&1`},
+		{`npm run test 2>&1`, `openchop npm run test 2>&1`},
+		{`npm test -- --watch=false 2>&1`, `openchop npm test -- --watch=false 2>&1`},
+		{`go test ./... 2>&1`, `openchop go test ./... 2>&1`},
 	}
 
 	for _, tt := range tests {
@@ -80,7 +80,7 @@ func TestSupportedCommandGetsPrepended(t *testing.T) {
 }
 
 func TestAlreadyChoppedPassthrough(t *testing.T) {
-	_, shouldModify, _ := processHookInput(makeInput("chop git status"))
+	_, shouldModify, _ := processHookInput(makeInput("openchop git status"))
 	if shouldModify {
 		t.Error("should not modify already-chopped command")
 	}
@@ -141,31 +141,31 @@ func TestCompoundCommandWrapping(t *testing.T) {
 	}{
 		{
 			"git add . && git commit -m 'test'",
-			"chop git add . && chop git commit -m 'test'",
+			"openchop git add . && openchop git commit -m 'test'",
 		},
 		{
 			"npm install || echo failed",
-			"chop npm install || echo failed",
+			"openchop npm install || echo failed",
 		},
 		{
 			"go build ./... && go test ./...",
-			"chop go build ./... && chop go test ./...",
+			"openchop go build ./... && openchop go test ./...",
 		},
 		{
 			"docker build . && docker ps",
-			"chop docker build . && chop docker ps",
+			"openchop docker build . && openchop docker ps",
 		},
 		{
 			`cd /path/to/project && npm run test 2>&1`,
-			`cd /path/to/project && chop npm run test 2>&1`,
+			`cd /path/to/project && openchop npm run test 2>&1`,
 		},
 		{
 			`cd "/c/Users/user/repos/project" && npm run test`,
-			`cd "/c/Users/user/repos/project" && chop npm run test`,
+			`cd "/c/Users/user/repos/project" && openchop npm run test`,
 		},
 		{
 			`cd /app && docker compose up && git status`,
-			`cd /app && chop docker compose up && chop git status`,
+			`cd /app && openchop docker compose up && openchop git status`,
 		},
 	}
 	for _, tt := range tests {
@@ -192,17 +192,17 @@ func TestQuotedOperatorsNotSplit(t *testing.T) {
 		expected string
 	}{
 		// && inside double quotes — single grep, wrapped
-		{`grep "foo && bar" file.txt`, `chop grep "foo && bar" file.txt`},
+		{`grep "foo && bar" file.txt`, `openchop grep "foo && bar" file.txt`},
 		// || inside double quotes — single grep, wrapped
-		{`grep "feat || fix" logs.txt`, `chop grep "feat || fix" logs.txt`},
+		{`grep "feat || fix" logs.txt`, `openchop grep "feat || fix" logs.txt`},
 		// && inside single quotes — single grep, wrapped
-		{`grep '$1 > 0 && $2 < 100' data.csv`, `chop grep '$1 > 0 && $2 < 100' data.csv`},
+		{`grep '$1 > 0 && $2 < 100' data.csv`, `openchop grep '$1 > 0 && $2 < 100' data.csv`},
 		// || inside --grep= value
-		{`git log --grep="feat || fix" --oneline`, `chop git log --grep="feat || fix" --oneline`},
+		{`git log --grep="feat || fix" --oneline`, `openchop git log --grep="feat || fix" --oneline`},
 		// real && after quoted section — only the real operator splits
-		{`grep "a && b" file.txt && echo done`, `chop grep "a && b" file.txt && echo done`},
+		{`grep "a && b" file.txt && echo done`, `openchop grep "a && b" file.txt && echo done`},
 		// escaped quote inside double-quoted string
-		{`grep "say \"hello && bye\"" file.txt`, `chop grep "say \"hello && bye\"" file.txt`},
+		{`grep "say \"hello && bye\"" file.txt`, `openchop grep "say \"hello && bye\"" file.txt`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.cmd, func(t *testing.T) {
@@ -227,9 +227,9 @@ func TestQuotedRedirectNotSkipped(t *testing.T) {
 		cmd      string
 		expected string
 	}{
-		{`grep '$1 > 0' data.csv`, `chop grep '$1 > 0' data.csv`},
-		{`grep "a > b" file.txt`, `chop grep "a > b" file.txt`},
-		{`grep "x < y" file.txt`, `chop grep "x < y" file.txt`},
+		{`grep '$1 > 0' data.csv`, `openchop grep '$1 > 0' data.csv`},
+		{`grep "a > b" file.txt`, `openchop grep "a > b" file.txt`},
+		{`grep "x < y" file.txt`, `openchop grep "x < y" file.txt`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.cmd, func(t *testing.T) {
@@ -332,7 +332,7 @@ func TestAuditLogWritesToFile(t *testing.T) {
 	}
 	ts := time.Now().Format("2006-01-02 15:04:05")
 	original := "git status"
-	rewritten := "chop git status"
+	rewritten := "openchop git status"
 	fmt.Fprintf(f, "%s  rewrite  %s -> %s\n", ts, original, rewritten)
 	f.Close()
 
@@ -345,7 +345,7 @@ func TestAuditLogWritesToFile(t *testing.T) {
 	if !strings.Contains(content, "rewrite") {
 		t.Error("audit log should contain 'rewrite'")
 	}
-	if !strings.Contains(content, "git status -> chop git status") {
+	if !strings.Contains(content, "git status -> openchop git status") {
 		t.Errorf("audit log should contain rewrite entry, got: %s", content)
 	}
 
@@ -366,7 +366,7 @@ func TestAuditLogAppendsMultipleEntries(t *testing.T) {
 			t.Fatalf("failed to open audit log: %v", err)
 		}
 		ts := time.Now().Format("2006-01-02 15:04:05")
-		fmt.Fprintf(f, "%s  rewrite  cmd%d -> chop cmd%d\n", ts, i, i)
+		fmt.Fprintf(f, "%s  rewrite  cmd%d -> openchop cmd%d\n", ts, i, i)
 		f.Close()
 	}
 

@@ -33,7 +33,7 @@ func FiltersConfigPath() string {
 		}
 		dir = filepath.Join(home, ".config")
 	}
-	return filepath.Join(dir, "chop", "filters.yml")
+	return filepath.Join(dir, "openchop", "filters.yml")
 }
 
 // LoadCustomFilters reads the custom filters config file as trusted.
@@ -110,7 +110,7 @@ func LookupCustomFilter(filters map[string]CustomFilter, command string, args []
 }
 
 // LoadCustomFiltersWithLocal loads global custom filters, then overlays
-// a local .chop-filters.yml from the given directory (if it exists).
+// a local .openchop-filters.yml from the given directory (if it exists).
 // Global filters are trusted; local ones are NOT.
 // Local filters are merged on top of global ones (local wins on conflict).
 func LoadCustomFiltersWithLocal(cwd string) map[string]CustomFilter {
@@ -120,7 +120,7 @@ func LoadCustomFiltersWithLocal(cwd string) map[string]CustomFilter {
 		return global
 	}
 
-	localPath := filepath.Join(cwd, ".chop-filters.yml")
+	localPath := filepath.Join(cwd, ".openchop-filters.yml")
 	// Local filters are untrusted
 	local := loadCustomFiltersWithTrust(localPath, false)
 

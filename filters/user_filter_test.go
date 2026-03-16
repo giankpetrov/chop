@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AgusRdz/chop/config"
+	"github.com/giankpetrov/openchop/config"
 )
 
 func TestBuildUserFilter_Nil(t *testing.T) {

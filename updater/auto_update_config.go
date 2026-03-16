@@ -71,7 +71,7 @@ func NotifyIfUpdateAvailable(currentVersion string) {
 	if latest == "" || latest == currentVersion {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "chop: update available %s -> %s (run 'chop update')\n", currentVersion, latest)
+	fmt.Fprintf(os.Stderr, "openchop: update available %s -> %s (run 'openchop update')\n", currentVersion, latest)
 }
 
 // clearUpdateAvailable removes the hint file (called after a successful manual update

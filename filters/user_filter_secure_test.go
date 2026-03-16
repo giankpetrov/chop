@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/AgusRdz/chop/config"
+	"github.com/giankpetrov/openchop/config"
 )
 
 func TestBuildExecFilter_Secure(t *testing.T) {

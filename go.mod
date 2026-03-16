@@ -1,4 +1,4 @@
-module github.com/AgusRdz/chop
+module github.com/giankpetrov/openchop
 
 go 1.24.0
 

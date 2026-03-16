@@ -3,14 +3,14 @@ set -e
 
 OLD_DIR="$HOME/bin"
 NEW_DIR="$HOME/.local/bin"
-BINARY="chop"
+BINARY="openchop"
 
-echo "chop migration: $OLD_DIR -> $NEW_DIR"
+echo "openchop migration: $OLD_DIR -> $NEW_DIR"
 echo ""
 
 # Check if old binary exists
 if [ ! -f "$OLD_DIR/$BINARY" ]; then
-  echo "chop not found in $OLD_DIR — nothing to migrate."
+  echo "openchop not found in $OLD_DIR — nothing to migrate."
   exit 0
 fi
 
@@ -30,14 +30,14 @@ esac
 if [ -n "$SHELL_RC" ] && [ -f "$SHELL_RC" ]; then
   # Remove old PATH entry (the comment line and the export line added by installer)
   if grep -qF "$OLD_DIR" "$SHELL_RC"; then
-    grep -v "# chop" "$SHELL_RC" | grep -v "$OLD_DIR" > "$SHELL_RC.chop_migrate_tmp"
-    mv "$SHELL_RC.chop_migrate_tmp" "$SHELL_RC"
+    grep -v "# openchop" "$SHELL_RC" | grep -v "$OLD_DIR" > "$SHELL_RC.openchop_migrate_tmp"
+    mv "$SHELL_RC.openchop_migrate_tmp" "$SHELL_RC"
     echo "removed $OLD_DIR from PATH in $SHELL_RC"
   fi
 
   # Add new PATH entry if not already present
   if ! grep -qF "$NEW_DIR" "$SHELL_RC"; then
-    printf '\n# chop\nexport PATH="%s:$PATH"\n' "$NEW_DIR" >> "$SHELL_RC"
+    printf '\n# openchop\nexport PATH="%s:$PATH"\n' "$NEW_DIR" >> "$SHELL_RC"
     echo "added $NEW_DIR to PATH in $SHELL_RC"
   fi
 
