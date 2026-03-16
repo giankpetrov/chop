@@ -1,12 +1,17 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var warnf = func(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "chop: warning: "+format+"\n", args...)
+}
 
 // CustomFilter defines a user-configured output filter for a specific command.
 type CustomFilter struct {
@@ -25,15 +30,7 @@ type CustomFiltersConfig struct {
 
 // FiltersConfigPath returns the path to the custom filters file.
 func FiltersConfigPath() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		dir = filepath.Join(home, ".config")
-	}
-	return filepath.Join(dir, "chop", "filters.yml")
+	return filepath.Join(ConfigDir(), "filters.yml")
 }
 
 // LoadCustomFilters reads the custom filters config file as trusted.
@@ -48,6 +45,17 @@ func LoadCustomFiltersFrom(path string) map[string]CustomFilter {
 }
 
 func loadCustomFiltersWithTrust(path string, trusted bool) map[string]CustomFilter {
+	// If trusted flag was requested, verify the file on disk first
+	if trusted {
+		if ok, err := IsSecure(path); !ok {
+			// For global filters, log the security issue but continue as untrusted
+			if err != nil {
+				warnf("security check failed for %s: %v", path, err)
+			}
+			trusted = false
+		}
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil

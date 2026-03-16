@@ -301,12 +301,13 @@ filters:
 
 	// 3. Test with both global and local filters
 	tmpXDG := t.TempDir()
+	os.Chmod(tmpXDG, 0o700)
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", tmpXDG)
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	globalConfigDir := filepath.Join(tmpXDG, "chop")
-	if err := os.MkdirAll(globalConfigDir, 0o755); err != nil {
+	if err := os.MkdirAll(globalConfigDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	globalConfigPath := filepath.Join(globalConfigDir, "filters.yml")
@@ -317,11 +318,12 @@ filters:
   "common-tool":
     head: 10
 `
-	if err := os.WriteFile(globalConfigPath, []byte(globalContent), 0o644); err != nil {
+	if err := os.WriteFile(globalConfigPath, []byte(globalContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	projectDir := t.TempDir()
+	os.Chmod(projectDir, 0o700)
 	localConfigPath := filepath.Join(projectDir, ".chop-filters.yml")
 	localContent := `
 filters:
@@ -330,7 +332,7 @@ filters:
   "common-tool":
     tail: 5
 `
-	if err := os.WriteFile(localConfigPath, []byte(localContent), 0o644); err != nil {
+	if err := os.WriteFile(localConfigPath, []byte(localContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -392,13 +394,14 @@ func TestFiltersConfigPath(t *testing.T) {
 func TestLoadCustomFilters(t *testing.T) {
 	// Setup a temporary XDG_CONFIG_HOME
 	tmpDir := t.TempDir()
+	os.Chmod(tmpDir, 0o700)
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", tmpDir)
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	// Create the expected config file path
 	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -407,7 +410,7 @@ filters:
   "mycli build":
     keep: ["ERROR"]
 `
-	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -421,5 +424,44 @@ filters:
 	}
 	if !f.Trusted {
 		t.Error("expected global filter to be trusted")
+	}
+}
+
+func TestIsSecure_Unix(t *testing.T) {
+	// Only test on non-windows
+	if os.PathSeparator == '\\' {
+		t.Skip("skipping Unix-specific security test on Windows")
+	}
+
+	dir := t.TempDir()
+	// Ensure the temp dir itself is secure (some systems use 0775 for temp)
+	os.Chmod(dir, 0o700)
+	path := filepath.Join(dir, "secure.yml")
+
+	// Create with restrictive permissions
+	if err := os.WriteFile(path, []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	secure, err := IsSecure(path)
+	if err != nil {
+		t.Fatalf("IsSecure failed: %v", err)
+	}
+	if !secure {
+		t.Error("expected 0600 file to be secure")
+	}
+
+	// Create with insecure permissions
+	insecurePath := filepath.Join(dir, "insecure.yml")
+	// Using 0666 is still secure in some environments (like this sandbox)
+	// because of umask. Let's use chmod to be sure.
+	if err := os.WriteFile(insecurePath, []byte("test"), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(insecurePath, 0o666)
+
+	secure, err = IsSecure(insecurePath)
+	if secure {
+		t.Error("expected 0666 file to be insecure")
 	}
 }

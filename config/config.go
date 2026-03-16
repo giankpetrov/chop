@@ -11,17 +11,9 @@ type Config struct {
 	Disabled []string
 }
 
-// Path returns the config file path, respecting XDG_CONFIG_HOME.
+// Path returns the config file path, respecting platform-specific standards.
 func Path() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		dir = filepath.Join(home, ".config")
-	}
-	return filepath.Join(dir, "chop", "config.yml")
+	return filepath.Join(ConfigDir(), "config.yml")
 }
 
 // Load reads the config file and returns a Config.

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/AgusRdz/chop/config"
 	"github.com/AgusRdz/chop/hooks"
 )
 
@@ -55,26 +56,14 @@ func Reset() {
 	}
 }
 
-// dataDir returns the chop data directory (~/.local/share/chop/).
+// dataDir returns the chop data directory.
 func dataDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	return filepath.Join(home, ".local", "share", "chop")
+	return config.DataDir()
 }
 
-// configDir returns the chop config directory, respecting XDG_CONFIG_HOME.
+// configDir returns the chop config directory.
 func configDir() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "."
-		}
-		dir = filepath.Join(home, ".config")
-	}
-	return filepath.Join(dir, "chop")
+	return config.ConfigDir()
 }
 
 // removeDir removes a directory and returns true if it existed.

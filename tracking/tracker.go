@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AgusRdz/chop/config"
 	_ "modernc.org/sqlite"
 )
 
@@ -54,11 +55,7 @@ func dbPath() string {
 	if p := os.Getenv("CHOP_DB_PATH"); p != "" {
 		return p
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "."
-	}
-	return filepath.Join(home, ".local", "share", "chop", "tracking.db")
+	return filepath.Join(config.DataDir(), "tracking.db")
 }
 
 // Init opens (or creates) the tracking database and ensures the schema exists.

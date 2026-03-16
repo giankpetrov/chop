@@ -8,17 +8,15 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 const checkInterval = 24 * time.Hour
 
-// dataDir returns ~/.local/share/chop, creating it if needed.
+// dataDir returns the platform-specific data directory for chop, creating it if needed.
 func dataDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(home, ".local", "share", "chop")
+	dir := config.DataDir()
 	os.MkdirAll(dir, 0o755)
 	return dir, nil
 }

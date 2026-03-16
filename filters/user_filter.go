@@ -11,10 +11,6 @@ import (
 	"github.com/AgusRdz/chop/config"
 )
 
-// warnf writes a warning to stderr. Used for non-fatal config issues.
-var warnf = func(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "chop: warning: "+format+"\n", args...)
-}
 
 // BuildUserFilter creates a FilterFunc from a user-defined CustomFilter.
 // Returns nil if the filter definition is empty/invalid.
@@ -26,7 +22,7 @@ func BuildUserFilter(cf *config.CustomFilter) FilterFunc {
 	// Exec-based filter takes priority - it's a full pipeline replacement
 	if cf.Exec != "" {
 		if !cf.Trusted {
-			warnf("skipping untrusted exec filter for security. Move it to global filters.yml to enable.")
+			fmt.Fprintf(os.Stderr, "chop: warning: skipping untrusted exec filter for security. Move it to global filters.yml to enable.\n")
 			return nil
 		}
 		return buildExecFilter(cf.Exec)
@@ -193,7 +189,7 @@ func compilePatterns(patterns []string) []*regexp.Regexp {
 	for _, p := range patterns {
 		re, err := regexp.Compile(p)
 		if err != nil {
-			warnf("invalid regex pattern %q: %v", p, err)
+			fmt.Fprintf(os.Stderr, "chop: warning: invalid regex pattern %q: %v\n", p, err)
 			continue
 		}
 		compiled = append(compiled, re)
