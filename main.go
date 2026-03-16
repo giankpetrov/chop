@@ -130,24 +130,53 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--uninstall|--status>")
+			printInitHelp()
 			os.Exit(1)
 		}
 		switch os.Args[2] {
-		case "--global", "-g":
+		case "--global", "-g", "--claude":
 			hooks.Install()
+		case "--gemini":
+			hooks.InstallGemini()
+		case "--aider":
+			hooks.PrintAiderInstructions()
 		case "--uninstall":
-			hooks.Uninstall()
-		case "--status":
-			installed, path := hooks.IsInstalled()
-			if installed {
-				fmt.Printf("chop hook is installed (%s)\n", path)
+			if len(os.Args) >= 4 {
+				switch os.Args[3] {
+				case "--claude":
+					hooks.Uninstall()
+				case "--gemini":
+					hooks.UninstallGemini()
+				default:
+					hooks.Uninstall()
+					hooks.UninstallGemini()
+				}
 			} else {
-				fmt.Printf("chop hook is NOT installed\n")
-				fmt.Println("run 'chop init --global' to install")
+				hooks.Uninstall()
+				hooks.UninstallGemini()
+			}
+		case "--status":
+			claudeInstalled, claudePath := hooks.IsInstalled()
+			geminiInstalled, geminiPath := hooks.IsGeminiInstalled()
+
+			if claudeInstalled {
+				fmt.Printf("Claude Code: hook is installed (%s)\n", claudePath)
+			} else {
+				fmt.Printf("Claude Code: hook is NOT installed\n")
+			}
+
+			if geminiInstalled {
+				fmt.Printf("Gemini CLI:  hook is installed (%s)\n", geminiPath)
+			} else {
+				fmt.Printf("Gemini CLI:  hook is NOT installed\n")
+			}
+
+			if !claudeInstalled && !geminiInstalled {
+				fmt.Println("\nrun 'chop init --claude' or 'chop init --gemini' to install")
 			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\n", os.Args[2])
+			printInitHelp()
 			os.Exit(1)
 		}
 		return
@@ -1469,8 +1498,17 @@ func buildExpectedHookCmd() (string, error) {
 	return fmt.Sprintf(`"%s" hook`, exe), nil
 }
 
+func printInitHelp() {
+	fmt.Fprintln(os.Stderr, "usage: chop init <flag>")
+	fmt.Fprintln(os.Stderr, "  --claude      Install Claude Code hook (~/.claude/settings.json)")
+	fmt.Fprintln(os.Stderr, "  --gemini      Install Gemini CLI hook (~/.gemini/settings.json)")
+	fmt.Fprintln(os.Stderr, "  --aider       Show instructions for Aider/OpenAI agents")
+	fmt.Fprintln(os.Stderr, "  --uninstall   Remove hooks (--claude, --gemini, or all)")
+	fmt.Fprintln(os.Stderr, "  --status      Check hook installation status")
+}
+
 func printHelp() {
-	fmt.Printf(`chop %s - CLI output compressor for Claude Code
+	fmt.Printf(`chop %s - CLI output compressor for AI Agents
 
 Usage:
   chop <command> [args...]    Run command and compress output
@@ -1495,9 +1533,11 @@ Subcommands:
   gain --export csv           Export history as CSV to stdout
   config                      Show global config path and contents
   config init                 Create a starter global config.yml
-  init --global               Install Claude Code hook (~/.claude/settings.json)
-  init --uninstall            Remove Claude Code hook
-  init --status               Check if hook is installed
+  init --claude               Install Claude Code hook (~/.claude/settings.json)
+  init --gemini               Install Gemini CLI hook (~/.gemini/settings.json)
+  init --aider                Show instructions for Aider/OpenAI agents
+  init --uninstall            Remove hooks
+  init --status               Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
   hook-audit --clear          Clear the hook audit log
   uninstall                   Remove everything: hook, data, config, binary
@@ -1530,9 +1570,11 @@ Subcommands:
   help                        Show this help
   version                     Show version
 
-Claude Code integration:
-  chop init --global          Register PreToolUse hook for Claude Code
-  chop init --uninstall       Remove the hook
+AI Agent integration:
+  chop init --claude          Register PreToolUse hook for Claude Code
+  chop init --gemini          Register BeforeTool hook for Gemini CLI
+  chop init --aider           Instructions for Aider/OpenAI agents
+  chop init --uninstall       Remove the hooks
   chop init --status          Check hook installation status
 
 Config (%s):
