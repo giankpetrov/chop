@@ -73,8 +73,15 @@ func main() {
 		runConfig(os.Args[2:])
 		return
 	case "hook":
-		if len(os.Args) > 2 && os.Args[2] == "--gemini" {
-			hooks.RunGeminiHook()
+		if len(os.Args) > 2 {
+			switch os.Args[2] {
+			case "--gemini":
+				hooks.RunGeminiHook()
+			case "--codex":
+				hooks.RunCodexHook()
+			default:
+				hooks.RunHook()
+			}
 		} else {
 			hooks.RunHook()
 		}
@@ -160,6 +167,26 @@ func main() {
 			} else {
 				hooks.GeminiInstall()
 			}
+		case "--codex":
+			if len(os.Args) > 3 {
+				switch os.Args[3] {
+				case "--uninstall":
+					hooks.CodexUninstall()
+				case "--status":
+					installed, path := hooks.CodexIsInstalled()
+					if installed {
+						fmt.Printf("chop Codex CLI hook is installed (%s)\n", path)
+					} else {
+						fmt.Printf("chop Codex CLI hook is NOT installed\n")
+						fmt.Println("run 'chop init --codex' to install")
+					}
+				default:
+					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init --codex [--uninstall|--status]\n", os.Args[3])
+					os.Exit(1)
+				}
+			} else {
+				hooks.CodexInstall()
+			}
 		case "--uninstall":
 			hooks.Uninstall()
 		case "--status":
@@ -174,8 +201,12 @@ func main() {
 			if gInstalled {
 				fmt.Printf("chop Gemini CLI hook is installed (%s)\n", gPath)
 			}
+			cInstalled, cPath := hooks.CodexIsInstalled()
+			if cInstalled {
+				fmt.Printf("chop Codex CLI hook is installed (%s)\n", cPath)
+			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--codex|--uninstall|--status>\n", os.Args[2])
 			os.Exit(1)
 		}
 		return
@@ -1527,6 +1558,9 @@ Subcommands:
   init --gemini               Install Gemini CLI hook (~/.gemini/settings.json)
   init --gemini --uninstall   Remove Gemini CLI hook
   init --gemini --status      Check Gemini CLI hook status
+  init --codex                Install Codex CLI hook (~/.codex/settings.json)
+  init --codex --uninstall    Remove Codex CLI hook
+  init --codex --status       Check Codex CLI hook status
   init --uninstall            Remove Claude Code hook
   init --status               Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
@@ -1570,6 +1604,11 @@ Gemini CLI integration:
   chop init --gemini          Register BeforeTool hook for Gemini CLI
   chop init --gemini --uninstall  Remove the hook
   chop init --gemini --status     Check hook installation status
+
+Codex CLI integration:
+  chop init --codex           Register PreToolUse hook for Codex CLI
+  chop init --codex --uninstall  Remove the hook
+  chop init --codex --status     Check hook installation status
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)

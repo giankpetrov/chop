@@ -4,9 +4,9 @@
   <img src="logo.png" alt="chop logo" width="200" />
 </p>
 
-**CLI output compressor for Claude Code.**
+**CLI output compressor for Claude Code, Gemini CLI, and Codex CLI.**
 
-Claude Code wastes 50-90% of its context window on verbose CLI output —
+Claude Code and other AI agents waste 50-90% of their context window on verbose CLI output —
 build logs, test results, container listings, git diffs. **chop** compresses
 that output before Claude sees it, saving tokens and keeping conversations
 focused.
@@ -267,9 +267,9 @@ chop anything            # auto-detects and compresses any output
 
 ## Agent Integration
 
-### Claude Code (automatic, zero-config)
+### Claude Code
 
-Register a PreToolUse hook that automatically wraps every Bash command:
+Register a `PreToolUse` hook that automatically wraps every Bash command:
 
 ```bash
 chop init --global       # install hook
@@ -294,6 +294,26 @@ When running CLI commands via Bash, prefix with `chop` for read-only commands:
 
 Do NOT use chop for: interactive commands, pipes, redirects, or write commands
 (git commit, git push, npm init, docker run).
+```
+
+### Gemini CLI
+
+Register a `BeforeTool` hook in `~/.gemini/settings.json` that wraps `run_shell_command`:
+
+```bash
+chop init --gemini             # install hook
+chop init --gemini --uninstall # remove hook
+chop init --gemini --status    # check if installed
+```
+
+### Codex CLI
+
+Register a `PreToolUse` hook in `~/.codex/settings.json` that wraps the `bash` tool:
+
+```bash
+chop init --codex              # install hook
+chop init --codex --uninstall  # remove hook
+chop init --codex --status     # check if installed
 ```
 
 ## Supported Commands (60+)
