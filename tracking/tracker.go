@@ -122,7 +122,7 @@ func Track(command string, rawTokens, filteredTokens int) error {
 		return err
 	}
 	var skipped int
-	row := db.QueryRow(`SELECT COUNT(*) FROM tracking_skip WHERE command = ? OR ? LIKE command || ' %'`, command, command)
+	row := db.QueryRow(`SELECT COUNT(*) FROM tracking_skip WHERE command = ? OR ? LIKE command || ' %' ESCAPE '\'`, command, command)
 	if err := row.Scan(&skipped); err == nil && skipped > 0 {
 		return nil
 	}
@@ -156,8 +156,8 @@ func GetStats() (Stats, error) {
 
 	today := time.Now().Local().Format("2006-01-02")
 	row = db.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ?`,
-		today+"%",
+		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ? || '%' ESCAPE '\'`,
+		today,
 	)
 	if err := row.Scan(&s.TodayCommands, &s.TodayRawTokens, &s.TodaySavedTokens); err != nil {
 		return Stats{}, err
@@ -351,7 +351,7 @@ func DeleteCommand(cmd string) error {
 	}
 	// The tracking table stores full command strings; match on the key prefix.
 	// Key is first two words, so match "cmd" or "cmd ..." (single-word keys too).
-	_, err := db.Exec(`DELETE FROM tracking WHERE command = ? OR command LIKE ?`, cmd, cmd+" %")
+	_, err := db.Exec(`DELETE FROM tracking WHERE command = ? OR command LIKE ? || ' %' ESCAPE '\'`, cmd, escapeLike(cmd))
 	if err != nil {
 		return err
 	}
@@ -546,6 +546,13 @@ func formatNum(n int) string {
 		return fmt.Sprintf("%d", n)
 	}
 	return formatNum(n/1000) + fmt.Sprintf(",%03d", n%1000)
+}
+
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }
 
 // GetStatsSince returns aggregate stats for records within the last d duration.
