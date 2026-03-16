@@ -5,13 +5,13 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 )
 
 // IsSecure checks if the given path is secure (owned by current user or root,
-// and not world-writable). Parent directories are also checked.
+// and not world-writable). Parent directories are also checked recursively up to the root.
 func IsSecure(path string) bool {
+	path = filepath.Clean(path)
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -23,16 +23,17 @@ func IsSecure(path string) bool {
 	}
 
 	uid := os.Getuid()
-	// Must be owned by current user or root
+	// Must be owned by current user or root.
 	if stat.Uid != uint32(uid) && stat.Uid != 0 {
 		return false
 	}
 
-	// Must not be world-writable
+	// Must not be world-writable.
 	if info.Mode()&0002 != 0 {
-		// Exception for /tmp which is standard in some environments,
-		// but we still want to be careful.
-		if !strings.HasPrefix(path, "/tmp") {
+		// We allow world-writable sticky bit directories like /tmp and /var/tmp
+		// themselves to be part of the parent hierarchy, but any files or subdirectories
+		// within them must still be secure (not world-writable).
+		if path != "/tmp" && path != "/var/tmp" {
 			return false
 		}
 	}
