@@ -4,9 +4,9 @@
   <img src="logo.png" alt="chop logo" width="200" />
 </p>
 
-**CLI output compressor for Claude Code.**
+**CLI output compressor for AI agents (Claude Code, Gemini CLI, Aider).**
 
-Claude Code wastes 50-90% of its context window on verbose CLI output —
+AI agents waste 50-90% of their context window on verbose CLI output —
 build logs, test results, container listings, git diffs. **chop** compresses
 that output before Claude sees it, saving tokens and keeping conversations
 focused.
@@ -17,16 +17,16 @@ The name comes from _chop chop_: the sound of something eating through all that 
 
 ## How It Works
 
-When Claude Code runs a Bash command, the raw output is fed back into the
+When an AI agent (like Claude Code) runs a Bash command, the raw output is fed back into the
 conversation as a `tool_result` — part of the **input** of the next API call.
 `chop` intercepts that result and compresses it before it enters the context.
 
 ```mermaid
 sequenceDiagram
-    participant CC as Claude Code
+    participant CC as AI Agent
     participant H as PreToolUse Hook
     participant CH as chop
-    participant API as Claude API
+    participant API as Agent API
 
     CC->>H: bash("docker ps")
     H->>CH: raw output (850 tokens)
@@ -267,9 +267,9 @@ chop anything            # auto-detects and compresses any output
 
 ## Agent Integration
 
-### Claude Code (automatic, zero-config)
+### Claude Code (automatic)
 
-Register a PreToolUse hook that automatically wraps every Bash command:
+Register a `PreToolUse` hook that automatically wraps every Bash command:
 
 ```bash
 chop init --global       # install hook
@@ -277,15 +277,34 @@ chop init --uninstall    # remove hook
 chop init --status       # check if installed
 ```
 
-After this, every command Claude Code runs gets compressed transparently.
-You'll see `chop git status` in the tool calls — that's the hook working.
+### Gemini CLI (automatic)
 
-Add this to your `CLAUDE.md` for best results:
+Register a `BeforeTool` hook that automatically wraps every Bash command:
+
+```bash
+chop init --gemini          # install hook
+chop init --gemini --uninstall # remove hook
+chop init --gemini --status    # check if installed
+```
+
+### Aider
+
+Aider doesn't have a hook system yet, but you can still use `chop` manually or via instructions:
+
+```bash
+chop init --aider        # show integration instructions
+```
+
+---
+
+### Best Practices
+
+Add this to your agent's instructions (e.g., `CLAUDE.md`, `.aider.instructions.md`, or Gemini custom instructions) for best results:
 
 ```markdown
 ## Chop (Token Optimizer)
 
-`chop` is installed globally. It compresses CLI output to reduce token consumption.
+`chop` is installed. It compresses CLI output to reduce token consumption.
 
 When running CLI commands via Bash, prefix with `chop` for read-only commands:
 - `chop git status`, `chop git log -10`, `chop git diff`

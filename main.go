@@ -134,12 +134,14 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--uninstall|--status>")
+			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--aider|--uninstall|--status>")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
 		case "--global", "-g":
 			hooks.Install()
+		case "--aider":
+			hooks.AiderInstructions()
 		case "--gemini":
 			if len(os.Args) > 3 {
 				switch os.Args[3] {
@@ -175,7 +177,7 @@ func main() {
 				fmt.Printf("chop Gemini CLI hook is installed (%s)\n", gPath)
 			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--aider|--uninstall|--status>\n", os.Args[2])
 			os.Exit(1)
 		}
 		return
@@ -1527,6 +1529,7 @@ Subcommands:
   init --gemini               Install Gemini CLI hook (~/.gemini/settings.json)
   init --gemini --uninstall   Remove Gemini CLI hook
   init --gemini --status      Check Gemini CLI hook status
+  init --aider                Show Aider integration instructions
   init --uninstall            Remove Claude Code hook
   init --status               Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
@@ -1570,6 +1573,9 @@ Gemini CLI integration:
   chop init --gemini          Register BeforeTool hook for Gemini CLI
   chop init --gemini --uninstall  Remove the hook
   chop init --gemini --status     Check hook installation status
+
+Aider integration:
+  chop init --aider           Show Aider integration instructions
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
