@@ -20,6 +20,10 @@ var (
 
 	// Jest/Vitest summary sections
 	reSummarySection = regexp.MustCompile(`(?i)^(Tests?|Test Suites?|Snapshots?|Time):`)
+
+	// Mocha patterns
+	reMochaPassing = regexp.MustCompile(`(\d+) passing`)
+	reMochaFailing = regexp.MustCompile(`(\d+) failing`)
 )
 
 func filterNpmTestCmd(raw string) (string, error) {
@@ -109,12 +113,12 @@ func filterNpmTestCmd(raw string) (string, error) {
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
 			if strings.Contains(trimmed, "passing") {
-				if m := regexp.MustCompile(`(\d+) passing`).FindStringSubmatch(trimmed); m != nil {
+				if m := reMochaPassing.FindStringSubmatch(trimmed); m != nil {
 					fmt.Sscanf(m[1], "%d", &totalPassed)
 				}
 			}
 			if strings.Contains(trimmed, "failing") {
-				if m := regexp.MustCompile(`(\d+) failing`).FindStringSubmatch(trimmed); m != nil {
+				if m := reMochaFailing.FindStringSubmatch(trimmed); m != nil {
 					fmt.Sscanf(m[1], "%d", &totalFailed)
 				}
 			}
