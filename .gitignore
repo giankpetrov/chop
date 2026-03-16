@@ -11,6 +11,9 @@ tests/fixtures/
 # signing key (never commit)
 signing.pem
 
+# AI agent artifacts
+.jules/
+
 # local dev artifacts
 docs/
 coverage.out
