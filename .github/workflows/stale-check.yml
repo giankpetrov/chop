@@ -1,8 +1,6 @@
 name: Stale branch check
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   pull_request_target:
     types: [opened, synchronize, reopened]
 
@@ -24,8 +22,8 @@ jobs:
             const { data: comparison } = await github.rest.repos.compareCommits({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              base: context.payload.pull_request.head.sha,
-              head: 'main',
+              base: 'main',
+              head: context.payload.pull_request.head.sha,
             });
 
             const behindBy = comparison.behind_by;
