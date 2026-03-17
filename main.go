@@ -313,6 +313,15 @@ func trackSilent(command, raw, filtered string) {
 	_ = tracking.Track(command, rawTokens, filteredTokens)
 }
 
+// sanitizeFilename replaces path separators and other risky characters with underscores
+// to prevent path traversal when constructing filenames from user input.
+func sanitizeFilename(s string) string {
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, "..", "__")
+	return s
+}
+
 func runCapture(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: chop capture <command> [args...]")
@@ -345,10 +354,12 @@ func runCapture(args []string) {
 	}
 	ts := time.Now().Format("20060102-150405")
 	var baseName string
+	safeCommand := sanitizeFilename(command)
+	safeSubcommand := sanitizeFilename(subcommand)
 	if subcommand != "" {
-		baseName = fmt.Sprintf("%s-%s-%s", command, subcommand, ts)
+		baseName = fmt.Sprintf("%s-%s-%s", safeCommand, safeSubcommand, ts)
 	} else {
-		baseName = fmt.Sprintf("%s-%s", command, ts)
+		baseName = fmt.Sprintf("%s-%s", safeCommand, ts)
 	}
 
 	fixtureDir := filepath.Join("tests", "fixtures")
