@@ -39,11 +39,18 @@ Write-Host ""
 
 # Add to user PATH if not already present
 $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-if ($UserPath -notlike "*$InstallDir*") {
+$CleanInstallDir = $InstallDir.TrimEnd("\")
+$PathParts = $UserPath -split ";" | ForEach-Object { $_.TrimEnd("\") }
+
+if ($PathParts -notcontains $CleanInstallDir) {
     [Environment]::SetEnvironmentVariable("PATH", "$InstallDir;$UserPath", "User")
     Write-Host "added $InstallDir to PATH"
-    Write-Host "restart your terminal for PATH changes to take effect"
-    Write-Host ""
+}
+
+# Update current session PATH so it can be used immediately
+$CurrentPathParts = $env:PATH -split ";" | ForEach-Object { $_.TrimEnd("\") }
+if ($CurrentPathParts -notcontains $CleanInstallDir) {
+    $env:PATH = "$InstallDir;$env:PATH"
 }
 
 Write-Host "next steps:"
