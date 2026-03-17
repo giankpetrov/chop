@@ -82,6 +82,7 @@ func init() {
 	registerRouter(getUvFilter, nil, "uv")
 	registerRouter(getComposerFilter, []string{"install"}, "composer")
 	registerRouter(getAcliFilter, nil, "acli")
+	registerRouter(getSystemctlFilter, []string{"status", "list-units"}, "systemctl")
 
 	// Routers with aliases (primary name visible, alternatives hidden)
 	registerRouter(getGradleFilter, nil, "gradle")

@@ -589,6 +589,12 @@ func looksLikeDfOutput(s string) bool {
 		strings.Contains(s, "Use%")
 }
 
+func looksLikeSystemctlStatus(s string) bool {
+	return (strings.Contains(s, "Loaded:") && strings.Contains(s, "Active:")) ||
+		strings.Contains(s, "Main PID:") ||
+		strings.Contains(s, "Status: \"")
+}
+
 // isHexPrefix checks if string starts with what looks like a hex hash (git oneline format)
 func isHexPrefix(s string) bool {
 	if len(s) < 7 {
