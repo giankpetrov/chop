@@ -5,15 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 // CodexInstall registers the chop hook in .codex/settings.json.
-func CodexInstall() {
+func CodexInstall(version string) {
 	settingsPath := codexSettingsPath()
 	if err := codexInstallTo(settingsPath); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
 		os.Exit(1)
 	}
+	_ = config.WriteDiscoveryInfo(version)
 	fmt.Printf("chop hook installed in %s\n", settingsPath)
 }
 
