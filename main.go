@@ -79,6 +79,8 @@ func main() {
 				hooks.RunGeminiHook()
 			case "--codex":
 				hooks.RunCodexHook()
+			case "--antigravity":
+				hooks.RunAntigravityHook()
 			default:
 				hooks.RunHook()
 			}
@@ -141,7 +143,7 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--uninstall|--status>")
+			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status>")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -187,6 +189,26 @@ func main() {
 			} else {
 				hooks.CodexInstall()
 			}
+		case "--antigravity":
+			if len(os.Args) > 3 {
+				switch os.Args[3] {
+				case "--uninstall":
+					hooks.AntigravityUninstall()
+				case "--status":
+					installed, path := hooks.AntigravityIsInstalled()
+					if installed {
+						fmt.Printf("chop Antigravity IDE hook is installed (%s)\n", path)
+					} else {
+						fmt.Printf("chop Antigravity IDE hook is NOT installed\n")
+						fmt.Println("run 'chop init --antigravity' to install")
+					}
+				default:
+					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init --antigravity [--uninstall|--status]\n", os.Args[3])
+					os.Exit(1)
+				}
+			} else {
+				hooks.AntigravityInstall()
+			}
 		case "--uninstall":
 			hooks.Uninstall()
 		case "--status":
@@ -205,8 +227,12 @@ func main() {
 			if cInstalled {
 				fmt.Printf("chop Codex CLI hook is installed (%s)\n", cPath)
 			}
+			aInstalled, aPath := hooks.AntigravityIsInstalled()
+			if aInstalled {
+				fmt.Printf("chop Antigravity IDE hook is installed (%s)\n", aPath)
+			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--codex|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status>\n", os.Args[2])
 			os.Exit(1)
 		}
 		return
@@ -1561,6 +1587,9 @@ Subcommands:
   init --codex                Install Codex CLI hook (~/.codex/settings.json)
   init --codex --uninstall    Remove Codex CLI hook
   init --codex --status       Check Codex CLI hook status
+  init --antigravity          Install Antigravity IDE hook (~/.antigravity/settings.json)
+  init --antigravity --uninstall Remove Antigravity IDE hook
+  init --antigravity --status Check Antigravity IDE hook status
   init --uninstall            Remove Claude Code hook
   init --status               Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
@@ -1609,6 +1638,11 @@ Codex CLI integration:
   chop init --codex           Register PreToolUse hook for Codex CLI
   chop init --codex --uninstall  Remove the hook
   chop init --codex --status     Check hook installation status
+
+Antigravity IDE integration:
+  chop init --antigravity     Register PreToolUse hook for Antigravity IDE
+  chop init --antigravity --uninstall Remove the hook
+  chop init --antigravity --status Check hook installation status
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
