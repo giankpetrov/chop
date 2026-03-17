@@ -102,6 +102,22 @@ func getDockerFilter(args []string) FilterFunc {
 	}
 }
 
+func getSystemctlFilter(args []string) FilterFunc {
+	if len(args) == 0 {
+		return nil
+	}
+	switch args[0] {
+	case "status":
+		return filterSystemctlStatus
+	case "list-units", "list-unit-files":
+		return filterSystemctlListUnits
+	case "start", "stop", "restart", "enable", "disable", "reload":
+		return filterAutoDetect
+	default:
+		return nil
+	}
+}
+
 func getDockerComposeFilter(args []string) FilterFunc {
 	if len(args) == 0 {
 		// No subcommand - return filterAutoDetect so HasFilter recognizes this
