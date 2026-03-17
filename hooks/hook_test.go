@@ -296,6 +296,32 @@ func TestShellBuiltinPassthrough(t *testing.T) {
 	}
 }
 
+func TestLowercaseBashToolName(t *testing.T) {
+	input := map[string]interface{}{
+		"session_id":      "test-session",
+		"cwd":             "/tmp",
+		"hook_event_name": "PreToolUse",
+		"tool_name":       "bash",
+		"tool_input": map[string]string{
+			"command": "npm test",
+		},
+	}
+	data, _ := json.Marshal(input)
+	output, shouldModify, _ := processHookInput(data)
+	if !shouldModify {
+		t.Fatal("expected command to be modified with lowercase 'bash' tool name")
+	}
+
+	var result hookOutput
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("failed to parse output JSON: %v", err)
+	}
+
+	if result.HookSpecificOutput.UpdatedInput.Command != "chop npm test" {
+		t.Errorf("expected 'chop npm test', got %q", result.HookSpecificOutput.UpdatedInput.Command)
+	}
+}
+
 func TestNonBashToolPassthrough(t *testing.T) {
 	input := map[string]interface{}{
 		"session_id":      "test-session",

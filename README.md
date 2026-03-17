@@ -4,7 +4,7 @@
   <img src="logo.png" alt="chop logo" width="200" />
 </p>
 
-**CLI output compressor for Claude Code, Gemini CLI, and Codex CLI.**
+**CLI output compressor for Claude Code (CLI & VS Code), Gemini CLI, and Codex CLI.**
 
 Claude Code and other AI agents waste 50-90% of their context window on verbose CLI output —
 build logs, test results, container listings, git diffs. **chop** compresses
@@ -267,9 +267,9 @@ chop anything            # auto-detects and compresses any output
 
 ## Agent Integration
 
-### Claude Code
+### Claude Code (CLI & VS Code)
 
-Register a `PreToolUse` hook that automatically wraps every Bash command:
+Register a `PreToolUse` hook that automatically wraps every Bash command. This hook works for both the **Claude Code CLI** and the **Claude Code VS Code extension**.
 
 ```bash
 chop init --global       # install hook

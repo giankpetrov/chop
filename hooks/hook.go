@@ -110,6 +110,23 @@ type toolInput struct {
 	Command string `json:"command"`
 }
 
+// resilientToolInput handles tool input that might use alternative field names for the command.
+type resilientToolInput struct {
+	Command string `json:"command"`
+	Cmd     string `json:"Cmd"` // common alternative capitalization
+	CmdLow  string `json:"cmd"` // common alternative capitalization
+}
+
+func (r resilientToolInput) GetCommand() string {
+	if r.Command != "" {
+		return r.Command
+	}
+	if r.Cmd != "" {
+		return r.Cmd
+	}
+	return r.CmdLow
+}
+
 type hookOutput struct {
 	HookSpecificOutput hookSpecificOutput `json:"hookSpecificOutput"`
 }
@@ -148,7 +165,7 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	if h.ToolName != "Bash" {
+	if h.ToolName != "Bash" && h.ToolName != "bash" {
 		return nil, false, ""
 	}
 
@@ -157,12 +174,13 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	var ti toolInput
+	var ti resilientToolInput
 	if err := json.Unmarshal(h.ToolInput, &ti); err != nil {
 		return nil, false, ""
 	}
 
-	wrapped, shouldModify, original := rewriteCommand(ti.Command)
+	command := ti.GetCommand()
+	wrapped, shouldModify, original := rewriteCommand(command)
 	if !shouldModify {
 		return nil, false, original
 	}
