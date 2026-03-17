@@ -20,23 +20,31 @@ Write-Host "moved: $OldPath -> $(Join-Path $NewDir $Binary)"
 
 # Update user PATH
 $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+$CleanOldDir = $OldDir.TrimEnd("\")
+$CleanNewDir = $NewDir.TrimEnd("\")
 
 # Remove old dir
-$Parts = $UserPath -split ";" | Where-Object { $_.TrimEnd("\") -ne $OldDir.TrimEnd("\") -and $_ -ne "" }
+$Parts = $UserPath -split ";" | Where-Object { $_.TrimEnd("\") -ne $CleanOldDir -and $_ -ne "" }
 
 # Add new dir if not present
-if ($Parts -notcontains $NewDir) {
+$HasNewDir = $Parts | ForEach-Object { $_.TrimEnd("\") } | Where-Object { $_ -eq $CleanNewDir }
+if (-not $HasNewDir) {
     $Parts = @($NewDir) + $Parts
     Write-Host "added $NewDir to PATH"
 }
 
-if ($UserPath -like "*$OldDir*") {
+if (($UserPath -split ";" | ForEach-Object { $_.TrimEnd("\") }) -contains $CleanOldDir) {
     Write-Host "removed $OldDir from PATH"
 }
 
 [Environment]::SetEnvironmentVariable("PATH", ($Parts -join ";"), "User")
 
-Write-Host ""
-Write-Host "restart your terminal for PATH changes to take effect"
+# Update current session PATH
+$env:PATH = ($env:PATH -split ";" | Where-Object { $_.TrimEnd("\") -ne $CleanOldDir } | ForEach-Object { $_ }) -join ";"
+$CurrentPathParts = $env:PATH -split ";" | ForEach-Object { $_.TrimEnd("\") }
+if ($CurrentPathParts -notcontains $CleanNewDir) {
+    $env:PATH = "$NewDir;$env:PATH"
+}
+
 Write-Host ""
 Write-Host "migration complete."
