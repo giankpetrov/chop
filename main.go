@@ -81,6 +81,8 @@ func main() {
 				hooks.RunCodexHook()
 			case "--antigravity":
 				hooks.RunAntigravityHook()
+			case "--cursor":
+				hooks.RunCursorHook()
 			default:
 				hooks.RunHook()
 			}
@@ -143,7 +145,7 @@ func main() {
 		return
 	case "init":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status>")
+			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--codex|--antigravity|--cursor|--uninstall|--status>")
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -209,6 +211,26 @@ func main() {
 			} else {
 				hooks.AntigravityInstall()
 			}
+		case "--cursor":
+			if len(os.Args) > 3 {
+				switch os.Args[3] {
+				case "--uninstall":
+					hooks.CursorUninstall()
+				case "--status":
+					installed, path := hooks.CursorIsInstalled()
+					if installed {
+						fmt.Printf("chop Cursor IDE hook is installed (%s)\n", path)
+					} else {
+						fmt.Printf("chop Cursor IDE hook is NOT installed\n")
+						fmt.Println("run 'chop init --cursor' to install")
+					}
+				default:
+					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init --cursor [--uninstall|--status]\n", os.Args[3])
+					os.Exit(1)
+				}
+			} else {
+				hooks.CursorInstall()
+			}
 		case "--uninstall":
 			hooks.Uninstall()
 		case "--status":
@@ -231,8 +253,12 @@ func main() {
 			if aInstalled {
 				fmt.Printf("chop Antigravity IDE hook is installed (%s)\n", aPath)
 			}
+			cuInstalled, cuPath := hooks.CursorIsInstalled()
+			if cuInstalled {
+				fmt.Printf("chop Cursor IDE hook is installed (%s)\n", cuPath)
+			}
 		default:
-			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status>\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init <--global|--gemini|--codex|--antigravity|--cursor|--uninstall|--status>\n", os.Args[2])
 			os.Exit(1)
 		}
 		return
@@ -1590,6 +1616,9 @@ Subcommands:
   init --antigravity          Install Antigravity IDE hook (~/.antigravity/settings.json)
   init --antigravity --uninstall Remove Antigravity IDE hook
   init --antigravity --status Check Antigravity IDE hook status
+  init --cursor               Install Cursor IDE hook (~/.cursor/hooks.json)
+  init --cursor --uninstall   Remove Cursor IDE hook
+  init --cursor --status      Check Cursor IDE hook status
   init --uninstall            Remove Claude Code hook
   init --status               Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
@@ -1643,6 +1672,11 @@ Antigravity IDE integration:
   chop init --antigravity     Register PreToolUse hook for Antigravity IDE
   chop init --antigravity --uninstall Remove the hook
   chop init --antigravity --status Check hook installation status
+
+Cursor IDE integration:
+  chop init --cursor          Register PreToolUse hook for Cursor IDE
+  chop init --cursor --uninstall Remove the hook
+  chop init --cursor --status    Check hook installation status
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
