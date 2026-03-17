@@ -5,15 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 // AntigravityInstall registers the chop hook in ~/.antigravity/settings.json.
-func AntigravityInstall() {
+func AntigravityInstall(version string) {
 	settingsPath := antigravitySettingsPath()
 	if err := antigravityInstallTo(settingsPath); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
 		os.Exit(1)
 	}
+	_ = config.WriteDiscoveryInfo(version)
 	fmt.Printf("chop hook installed in %s\n", settingsPath)
 }
 
