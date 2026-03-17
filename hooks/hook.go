@@ -98,12 +98,31 @@ func containsOutsideQuotes(s, needle string) bool {
 }
 
 // hookInput represents the JSON payload received from Claude Code's PreToolUse hook.
+// It supports both snake_case (CLI) and camelCase (VS Code extension).
 type hookInput struct {
 	SessionID     string          `json:"session_id"`
+	SessionIDAlt  string          `json:"sessionId"`
 	Cwd           string          `json:"cwd"`
 	HookEventName string          `json:"hook_event_name"`
+	HookEventAlt  string          `json:"hookEventName"`
 	ToolName      string          `json:"tool_name"`
+	ToolNameAlt   string          `json:"toolName"`
 	ToolInput     json.RawMessage `json:"tool_input"`
+	ToolInputAlt  json.RawMessage `json:"toolInput"`
+}
+
+func (h hookInput) GetToolName() string {
+	if h.ToolName != "" {
+		return h.ToolName
+	}
+	return h.ToolNameAlt
+}
+
+func (h hookInput) GetToolInput() json.RawMessage {
+	if len(h.ToolInput) > 0 {
+		return h.ToolInput
+	}
+	return h.ToolInputAlt
 }
 
 type toolInput struct {
@@ -165,7 +184,8 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	if h.ToolName != "Bash" && h.ToolName != "bash" {
+	toolName := h.GetToolName()
+	if toolName != "Bash" && toolName != "bash" {
 		return nil, false, ""
 	}
 
@@ -175,7 +195,7 @@ func processHookInput(input []byte) ([]byte, bool, string) {
 	}
 
 	var ti resilientToolInput
-	if err := json.Unmarshal(h.ToolInput, &ti); err != nil {
+	if err := json.Unmarshal(h.GetToolInput(), &ti); err != nil {
 		return nil, false, ""
 	}
 

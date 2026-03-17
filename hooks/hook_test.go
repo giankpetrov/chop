@@ -322,6 +322,33 @@ func TestLowercaseBashToolName(t *testing.T) {
 	}
 }
 
+func TestCamelCaseHookInput(t *testing.T) {
+	// VS Code extension uses camelCase for some fields
+	input := map[string]interface{}{
+		"sessionId":     "test-session",
+		"cwd":           "/tmp",
+		"hookEventName": "PreToolUse",
+		"toolName":      "Bash",
+		"toolInput": map[string]string{
+			"command": "npm test",
+		},
+	}
+	data, _ := json.Marshal(input)
+	output, shouldModify, _ := processHookInput(data)
+	if !shouldModify {
+		t.Fatal("expected command to be modified with camelCase input fields")
+	}
+
+	var result hookOutput
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("failed to parse output JSON: %v", err)
+	}
+
+	if result.HookSpecificOutput.UpdatedInput.Command != "chop npm test" {
+		t.Errorf("expected 'chop npm test', got %q", result.HookSpecificOutput.UpdatedInput.Command)
+	}
+}
+
 func TestNonBashToolPassthrough(t *testing.T) {
 	input := map[string]interface{}{
 		"session_id":      "test-session",

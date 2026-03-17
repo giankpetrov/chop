@@ -10,10 +10,28 @@ import (
 // antigravityHookInput represents the JSON payload from Antigravity IDE's PreToolUse hook.
 type antigravityHookInput struct {
 	SessionID     string          `json:"session_id"`
+	SessionIDAlt  string          `json:"sessionId"`
 	Cwd           string          `json:"cwd"`
 	HookEventName string          `json:"hook_event_name"`
+	HookEventAlt  string          `json:"hookEventName"`
 	ToolName      string          `json:"tool_name"`
+	ToolNameAlt   string          `json:"toolName"`
 	ToolInput     json.RawMessage `json:"tool_input"`
+	ToolInputAlt  json.RawMessage `json:"toolInput"`
+}
+
+func (h antigravityHookInput) GetToolName() string {
+	if h.ToolName != "" {
+		return h.ToolName
+	}
+	return h.ToolNameAlt
+}
+
+func (h antigravityHookInput) GetToolInput() json.RawMessage {
+	if len(h.ToolInput) > 0 {
+		return h.ToolInput
+	}
+	return h.ToolInputAlt
 }
 
 // antigravityToolInput matches Antigravity IDE's bash tool input.
@@ -60,7 +78,8 @@ func processAntigravityHookInput(input []byte) ([]byte, bool, string) {
 	}
 
 	// Antigravity uses "bash" or "Bash"
-	if h.ToolName != "bash" && h.ToolName != "Bash" {
+	toolName := h.GetToolName()
+	if toolName != "bash" && toolName != "Bash" {
 		return nil, false, ""
 	}
 
@@ -69,12 +88,13 @@ func processAntigravityHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	var ti antigravityToolInput
-	if err := json.Unmarshal(h.ToolInput, &ti); err != nil {
+	var ti resilientToolInput
+	if err := json.Unmarshal(h.GetToolInput(), &ti); err != nil {
 		return nil, false, ""
 	}
 
-	wrapped, shouldModify, original := rewriteCommand(ti.Command)
+	command := ti.GetCommand()
+	wrapped, shouldModify, original := rewriteCommand(command)
 	if !shouldModify {
 		return nil, false, original
 	}
