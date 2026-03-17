@@ -141,9 +141,9 @@ func main() {
 	case "diff":
 		runDiff(os.Args[2:])
 		return
-	case "init":
+	case "init", "setup":
 		if len(os.Args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status>")
+			fmt.Fprintf(os.Stderr, "usage: chop %s <--global|--gemini|--codex|--antigravity|--uninstall|--status>\n", os.Args[1])
 			os.Exit(1)
 		}
 		switch os.Args[2] {
@@ -160,7 +160,7 @@ func main() {
 						fmt.Printf("chop Gemini CLI hook is installed (%s)\n", path)
 					} else {
 						fmt.Printf("chop Gemini CLI hook is NOT installed\n")
-						fmt.Println("run 'chop init --gemini' to install")
+						fmt.Println("run 'chop setup --gemini' to install")
 					}
 				default:
 					fmt.Fprintf(os.Stderr, "unknown flag %q\nusage: chop init --gemini [--uninstall|--status]\n", os.Args[3])
@@ -217,11 +217,14 @@ func main() {
 				fmt.Printf("chop hook is installed (%s)\n", path)
 			} else {
 				fmt.Printf("chop hook is NOT installed\n")
-				fmt.Println("run 'chop init --global' to install")
+				fmt.Println("run 'chop setup --global' to install")
 			}
 			gInstalled, gPath := hooks.GeminiIsInstalled()
 			if gInstalled {
 				fmt.Printf("chop Gemini CLI hook is installed (%s)\n", gPath)
+			} else {
+				fmt.Printf("chop Gemini CLI hook is NOT installed\n")
+				fmt.Println("run 'chop setup --gemini' to install")
 			}
 			cInstalled, cPath := hooks.CodexIsInstalled()
 			if cInstalled {
@@ -1580,18 +1583,18 @@ Subcommands:
   gain --export csv           Export history as CSV to stdout
   config                      Show global config path and contents
   config init                 Create a starter global config.yml
-  init --global               Install Claude Code hook (~/.claude/settings.json)
-  init --gemini               Install Gemini CLI hook (~/.gemini/settings.json)
-  init --gemini --uninstall   Remove Gemini CLI hook
-  init --gemini --status      Check Gemini CLI hook status
-  init --codex                Install Codex CLI hook (~/.codex/settings.json)
-  init --codex --uninstall    Remove Codex CLI hook
-  init --codex --status       Check Codex CLI hook status
-  init --antigravity          Install Antigravity IDE hook (~/.antigravity/settings.json)
-  init --antigravity --uninstall Remove Antigravity IDE hook
-  init --antigravity --status Check Antigravity IDE hook status
-  init --uninstall            Remove Claude Code hook
-  init --status               Check if hooks are installed
+  setup --global              Install Claude Code hook (~/.claude/settings.json)
+  setup --gemini              Install Gemini CLI hook (~/.gemini/settings.json)
+  setup --gemini --uninstall  Remove Gemini CLI hook
+  setup --gemini --status     Check Gemini CLI hook status
+  setup --codex               Install Codex CLI hook (~/.codex/settings.json)
+  setup --codex --uninstall   Remove Codex CLI hook
+  setup --codex --status      Check Codex CLI hook status
+  setup --antigravity         Install Antigravity IDE hook (~/.antigravity/settings.json)
+  setup --antigravity --uninstall Remove Antigravity IDE hook
+  setup --antigravity --status Check Antigravity IDE hook status
+  setup --uninstall           Remove Claude Code hook
+  setup --status              Check if hooks are installed
   hook-audit                  Show last 20 hook rewrite log entries
   hook-audit --clear          Clear the hook audit log
   uninstall                   Remove everything: hook, data, config, binary
@@ -1625,24 +1628,24 @@ Subcommands:
   version                     Show version
 
 Claude Code integration:
-  chop init --global          Register PreToolUse hook for Claude Code
-  chop init --uninstall       Remove the hook
-  chop init --status          Check hook installation status
+  chop setup --global         Register PreToolUse hook for Claude Code
+  chop setup --uninstall      Remove the hook
+  chop setup --status         Check hook installation status
 
 Gemini CLI integration:
-  chop init --gemini          Register BeforeTool hook for Gemini CLI
-  chop init --gemini --uninstall  Remove the hook
-  chop init --gemini --status     Check hook installation status
+  chop setup --gemini         Register BeforeTool hook for Gemini CLI
+  chop setup --gemini --uninstall  Remove the hook
+  chop setup --gemini --status     Check hook installation status
 
 Codex CLI integration:
-  chop init --codex           Register PreToolUse hook for Codex CLI
-  chop init --codex --uninstall  Remove the hook
-  chop init --codex --status     Check hook installation status
+  chop setup --codex          Register PreToolUse hook for Codex CLI
+  chop setup --codex --uninstall  Remove the hook
+  chop setup --codex --status     Check hook installation status
 
 Antigravity IDE integration:
-  chop init --antigravity     Register PreToolUse hook for Antigravity IDE
-  chop init --antigravity --uninstall Remove the hook
-  chop init --antigravity --status Check hook installation status
+  chop setup --antigravity    Register PreToolUse hook for Antigravity IDE
+  chop setup --antigravity --uninstall Remove the hook
+  chop setup --antigravity --status Check hook installation status
 
 Config (%s):
   disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
