@@ -59,17 +59,18 @@ chmod +x "${INSTALL_DIR}/chop${EXT}"
 echo "installed chop to ${INSTALL_DIR}/chop${EXT}"
 echo ""
 
+# Update discovery file
+"${INSTALL_DIR}/chop${EXT}" agent-info > /dev/null 2>&1 || true
+
 # Check if install dir is in PATH
 case ":$PATH:" in
   *":${INSTALL_DIR}:"*) ;;
   *)
     if [ "$OS" = "windows" ]; then
-      # Convert to Windows path for setx
+      # Convert to Windows path for registry update
       WIN_DIR=$(cygpath -w "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")
-      echo "Adding ${WIN_DIR} to your PATH..."
-      powershell.exe -Command "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';${WIN_DIR}', 'User')"
-      echo "PATH updated. Restart your terminal for changes to take effect."
-      echo ""
+      powershell.exe -NoProfile -Command "\$p = [Environment]::GetEnvironmentVariable('Path', 'User'); \$d = '${WIN_DIR}'.TrimEnd('\\'); if ((\$p -split ';' | ForEach-Object { \$_.TrimEnd('\\') }) -notcontains \$d) { [Environment]::SetEnvironmentVariable('Path', \"\$d;\$p\", 'User'); Write-Host \"Added \$d to User PATH\" }"
+      export PATH="${INSTALL_DIR}:$PATH"
     else
     # Detect shell config file
     SHELL_NAME="$(basename "${SHELL:-}")"
@@ -107,3 +108,8 @@ echo ""
 echo "  # Claude Code hook (auto-rewrite Bash tool calls):"
 echo "  chop init --global"
 echo "  chop init --status    # check if installed"
+
+echo ""
+echo "Installation complete! Please tell your AI Agent:"
+echo "  'Remember that chop is installed at ${INSTALL_DIR}/chop${EXT} and use it for CLI compression.'"
+echo "This will prevent the agent from searching for it in the future."

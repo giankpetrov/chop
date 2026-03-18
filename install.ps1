@@ -39,12 +39,32 @@ Write-Host ""
 
 # Add to user PATH if not already present
 $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-if ($UserPath -notlike "*$InstallDir*") {
-    [Environment]::SetEnvironmentVariable("PATH", "$InstallDir;$UserPath", "User")
+$CleanInstallDir = $InstallDir.TrimEnd("\")
+$PathParts = $UserPath -split ";" | ForEach-Object { $_.TrimEnd("\") }
+
+if ($PathParts -notcontains $CleanInstallDir) {
+    $NewUserPath = "$InstallDir;$UserPath"
+    [Environment]::SetEnvironmentVariable("PATH", $NewUserPath, "User")
     Write-Host "added $InstallDir to PATH"
-    Write-Host "restart your terminal for PATH changes to take effect"
-    Write-Host ""
 }
+
+# Update current session PATH so it can be used immediately
+$CurrentPathParts = $env:PATH -split ";" | ForEach-Object { $_.TrimEnd("\") }
+if ($CurrentPathParts -notcontains $CleanInstallDir) {
+    $env:PATH = "$InstallDir;$env:PATH"
+}
+
+# Update discovery file and notify system of PATH change
+& "$Destination" agent-info | Out-Null
+$HWND_BROADCAST = [IntPtr]0xffff
+$WM_SETTINGCHANGE = 0x001a
+$MethodDefinition = @'
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+'@
+$User32 = Add-Type -MemberDefinition $MethodDefinition -Name "User32" -Namespace "Win32" -PassThru
+$result = [IntPtr]::Zero
+$User32::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [IntPtr]::Zero, "Environment", 2, 100, [ref]$result) | Out-Null
 
 Write-Host "next steps:"
 Write-Host ""
@@ -55,3 +75,7 @@ Write-Host ""
 Write-Host "  # claude code hook (auto-rewrite bash tool calls):"
 Write-Host "  chop init --global"
 Write-Host "  chop init --status"
+Write-Host ""
+Write-Host "Installation complete! Please tell your AI Agent:"
+Write-Host "  'Remember that chop is installed at $Destination and use it for CLI compression.'"
+Write-Host "This will prevent the agent from searching for it in the future."

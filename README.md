@@ -1,7 +1,7 @@
 # chop
 
 <p align="center">
-  <img src="logo.png" alt="chop logo" width="200" />
+  <img src="logo.png?v=2" alt="chop logo" width="200" />
 </p>
 
 **CLI output compressor for Claude Code, Gemini CLI, Codex CLI, and Antigravity IDE.**
@@ -324,6 +324,30 @@ Register a `PreToolUse` hook in `~/.antigravity/settings.json` that wraps the `b
 chop init --antigravity              # install hook
 chop init --antigravity --uninstall  # remove hook
 chop init --antigravity --status     # check if installed
+```
+
+### AI Agent Discovery
+
+chop writes a discovery file at `~/.chop/path.json` on every install, update, or hook registration, so AI agents can always locate the binary without searching:
+
+```json
+{
+  "version": "v1.15.0",
+  "path": "/home/user/.local/bin/chop"
+}
+```
+
+Two commands support agent-first workflows:
+
+```bash
+chop agent-info               # output JSON metadata (path, version, installed hooks)
+chop init --agent-handshake   # print a high-signal discovery message agents recognize
+```
+
+`setup` is also available as an alias for `init`, useful when working with Gemini CLI where `/init` conflicts with a built-in command:
+
+```bash
+chop setup --global           # same as chop init --global
 ```
 
 ## Supported Commands (60+)
@@ -669,7 +693,7 @@ make release-minor     # tag + push next minor version
 
 chop started as a Claude Code-focused tool and has grown through community contributions.
 
-- **[@giankpetrov](https://github.com/giankpetrov)** — Codex CLI integration, Antigravity IDE integration, systemctl filter, Windows native path support, and security hardening
+- **[@giankpetrov](https://github.com/giankpetrov)** — Codex CLI integration, Antigravity IDE integration, systemctl filter, Windows native path support, security hardening, and AI agent discovery
 - **[@aeanez](https://github.com/aeanez)** — log compaction, unchopped report, custom filters, changelog command, enable/disable toggle, auto-update toggle, and Gemini CLI integration
 
 ## License
