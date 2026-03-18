@@ -1,7 +1,7 @@
 # chop
 
 <p align="center">
-  <img src="logo.png" alt="chop logo" width="200" />
+  <img src="logo.png?v=2" alt="chop logo" width="200" />
 </p>
 
 **CLI output compressor for Claude Code, Gemini CLI, Codex CLI, and Antigravity IDE.**
