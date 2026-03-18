@@ -14,6 +14,9 @@ signing.pem
 # AI agent artifacts
 .jules/
 
+# build output binaries
+chop
+
 # local dev artifacts
 docs/
 coverage.out
