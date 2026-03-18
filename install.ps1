@@ -43,7 +43,8 @@ $CleanInstallDir = $InstallDir.TrimEnd("\")
 $PathParts = $UserPath -split ";" | ForEach-Object { $_.TrimEnd("\") }
 
 if ($PathParts -notcontains $CleanInstallDir) {
-    [Environment]::SetEnvironmentVariable("PATH", "$InstallDir;$UserPath", "User")
+    $NewUserPath = "$InstallDir;$UserPath"
+    [Environment]::SetEnvironmentVariable("PATH", $NewUserPath, "User")
     Write-Host "added $InstallDir to PATH"
 }
 
@@ -52,6 +53,18 @@ $CurrentPathParts = $env:PATH -split ";" | ForEach-Object { $_.TrimEnd("\") }
 if ($CurrentPathParts -notcontains $CleanInstallDir) {
     $env:PATH = "$InstallDir;$env:PATH"
 }
+
+# Update discovery file and notify system of PATH change
+& "$Destination" agent-info | Out-Null
+$HWND_BROADCAST = [IntPtr]0xffff
+$WM_SETTINGCHANGE = 0x001a
+$MethodDefinition = @'
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+'@
+$User32 = Add-Type -MemberDefinition $MethodDefinition -Name "User32" -Namespace "Win32" -PassThru
+$result = [IntPtr]::Zero
+$User32::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [IntPtr]::Zero, "Environment", 2, 100, [ref]$result) | Out-Null
 
 Write-Host "next steps:"
 Write-Host ""

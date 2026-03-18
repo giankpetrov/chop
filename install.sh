@@ -59,6 +59,9 @@ chmod +x "${INSTALL_DIR}/chop${EXT}"
 echo "installed chop to ${INSTALL_DIR}/chop${EXT}"
 echo ""
 
+# Update discovery file
+"${INSTALL_DIR}/chop${EXT}" agent-info > /dev/null 2>&1 || true
+
 # Check if install dir is in PATH
 case ":$PATH:" in
   *":${INSTALL_DIR}:"*) ;;

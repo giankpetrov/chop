@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/AgusRdz/chop/config"
 )
 
 // chopHookIdentifier is used to detect chop hook entries in settings.json.
@@ -13,7 +15,7 @@ import (
 const chopBinaryName = "chop"
 
 // Install registers the chop hook in ~/.claude/settings.json.
-func Install() {
+func Install(version string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to get home directory: %v\n", err)
@@ -24,6 +26,7 @@ func Install() {
 		fmt.Fprintf(os.Stderr, "chop: %v\n", err)
 		os.Exit(1)
 	}
+	_ = config.WriteDiscoveryInfo(version)
 	fmt.Printf("chop hook installed in %s\n", settingsPath)
 }
 
