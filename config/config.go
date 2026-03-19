@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,6 +73,46 @@ func LoadWithLocal(cwd string) Config {
 	// Local disabled list overrides global entirely
 	cfg.Disabled = local.Disabled
 	return cfg
+}
+
+// Validate checks a config file for structural issues and returns a list of
+// human-readable error strings. Returns nil if the file is valid.
+func Validate(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []string{fmt.Sprintf("cannot read file: %v", err)}
+	}
+
+	var errs []string
+	knownKeys := map[string]bool{"disabled": true}
+
+	for i, line := range strings.Split(string(data), "\n") {
+		// Strip comments
+		if idx := strings.Index(line, "#"); idx >= 0 {
+			line = line[:idx]
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		key, value, ok := parseKV(line)
+		if !ok {
+			errs = append(errs, fmt.Sprintf("line %d: invalid syntax %q", i+1, line))
+			continue
+		}
+		if !knownKeys[key] {
+			errs = append(errs, fmt.Sprintf("line %d: unknown key %q", i+1, key))
+		}
+		if key == "disabled" {
+			items := parseList(value)
+			for _, item := range items {
+				if item == "" {
+					errs = append(errs, fmt.Sprintf("line %d: empty entry in disabled list", i+1))
+				}
+			}
+		}
+	}
+	return errs
 }
 
 // parse does simple line-by-line parsing of the config YAML.

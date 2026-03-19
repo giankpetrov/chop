@@ -7,14 +7,34 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/AgusRdz/chop/config"
+	"github.com/mattn/go-isatty"
 	_ "modernc.org/sqlite"
 )
+
+// ANSI color codes.
+const (
+	ansiReset  = "\033[0m"
+	ansiDim    = "\033[2m"
+	ansiYellow = "\033[33m"
+	ansiRed    = "\033[31m"
+	ansiGreen  = "\033[32m"
+)
+
+// IsColorEnabled reports whether color output should be used:
+// stdout must be a terminal and NO_COLOR must not be set.
+func IsColorEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+}
 
 // Stats holds aggregate token savings statistics.
 type Stats struct {
@@ -43,6 +63,16 @@ type Record struct {
 	RawTokens      int
 	FilteredTokens int
 	SavingsPct     float64
+	Project        string
+}
+
+// ProjectSummary holds per-project aggregate stats.
+type ProjectSummary struct {
+	Project     string
+	Count       int
+	RawTokens   int
+	SavedTokens int
+	SavingsPct  float64
 }
 
 var (
@@ -56,6 +86,11 @@ func dbPath() string {
 		return p
 	}
 	return filepath.Join(config.DataDir(), "tracking.db")
+}
+
+// DBPath returns the path to the tracking database file.
+func DBPath() string {
+	return dbPath()
 }
 
 // Init opens (or creates) the tracking database and ensures the schema exists.
@@ -91,6 +126,15 @@ func Init() error {
 		)`)
 		if dbErr != nil {
 			return
+		}
+		// Migrate: add project column if not present (added in v1.x)
+		var colExists int
+		_ = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('tracking') WHERE name='project'`).Scan(&colExists)
+		if colExists == 0 {
+			_, dbErr = db.Exec(`ALTER TABLE tracking ADD COLUMN project TEXT`)
+			if dbErr != nil {
+				return
+			}
 		}
 		_, dbErr = db.Exec(`CREATE TABLE IF NOT EXISTS unchopped_skip (
 			command TEXT PRIMARY KEY,
@@ -129,10 +173,11 @@ func Track(command string, rawTokens, filteredTokens int) error {
 		savingsPct = 100.0 - (float64(filteredTokens) / float64(rawTokens) * 100.0)
 	}
 	now := time.Now().Local().Format("2006-01-02 15:04:05")
+	project := gitRoot()
 	_, err := db.Exec(
-		`INSERT INTO tracking (timestamp, command, raw_tokens, filtered_tokens, savings_pct)
-		 VALUES (?, ?, ?, ?, ?)`,
-		now, command, rawTokens, filteredTokens, savingsPct,
+		`INSERT INTO tracking (timestamp, command, raw_tokens, filtered_tokens, savings_pct, project)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		now, command, rawTokens, filteredTokens, savingsPct, project,
 	)
 	return err
 }
@@ -205,7 +250,7 @@ func GetHistory(limit int) ([]Record, error) {
 		return nil, err
 	}
 	rows, err := db.Query(
-		`SELECT timestamp, command, raw_tokens, filtered_tokens, savings_pct
+		`SELECT timestamp, command, raw_tokens, filtered_tokens, savings_pct, COALESCE(project, '')
 		 FROM tracking ORDER BY id DESC LIMIT ?`, limit,
 	)
 	if err != nil {
@@ -216,7 +261,32 @@ func GetHistory(limit int) ([]Record, error) {
 	var records []Record
 	for rows.Next() {
 		var r Record
-		if err := rows.Scan(&r.Timestamp, &r.Command, &r.RawTokens, &r.FilteredTokens, &r.SavingsPct); err != nil {
+		if err := rows.Scan(&r.Timestamp, &r.Command, &r.RawTokens, &r.FilteredTokens, &r.SavingsPct, &r.Project); err != nil {
+			return nil, err
+		}
+		records = append(records, r)
+	}
+	return records, rows.Err()
+}
+
+// GetHistoryByProject returns the last N tracking records for a specific project.
+func GetHistoryByProject(project string, limit int) ([]Record, error) {
+	if err := Init(); err != nil {
+		return nil, err
+	}
+	rows, err := db.Query(
+		`SELECT timestamp, command, raw_tokens, filtered_tokens, savings_pct, COALESCE(project, '')
+		 FROM tracking WHERE project = ? ORDER BY id DESC LIMIT ?`, project, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []Record
+	for rows.Next() {
+		var r Record
+		if err := rows.Scan(&r.Timestamp, &r.Command, &r.RawTokens, &r.FilteredTokens, &r.SavingsPct, &r.Project); err != nil {
 			return nil, err
 		}
 		records = append(records, r)
@@ -495,26 +565,64 @@ run 'chop gain --history' for command history`,
 
 // FormatHistory formats history records for display.
 // When verbose is false, long command strings are truncated to 50 characters.
-func FormatHistory(records []Record, verbose bool) string {
+// When color is true, ANSI colors are applied to markers and savings percentages.
+// In verbose mode, records are grouped by project with a header line between groups.
+func FormatHistory(records []Record, verbose bool, color bool) string {
 	if len(records) == 0 {
 		return "no commands tracked yet"
 	}
 	const maxCmd = 50
 	var b strings.Builder
 	b.WriteString("recent commands:\n")
+	var lastProject string
 	for _, r := range records {
+		if verbose && r.Project != lastProject {
+			if color {
+				b.WriteString(ansiDim + "[project: " + r.Project + "]" + ansiReset + "\n")
+			} else {
+				b.WriteString("[project: " + r.Project + "]\n")
+			}
+			lastProject = r.Project
+		}
+		isZero := r.SavingsPct == 0 && r.RawTokens > 0
 		marker := " "
-		if r.SavingsPct == 0 && r.RawTokens > 0 {
+		if isZero {
 			marker = "!"
 		}
 		cmd := r.Command
 		if !verbose && len(cmd) > maxCmd {
 			cmd = cmd[:maxCmd-3] + "..."
 		}
-		b.WriteString(fmt.Sprintf(" %s %s  %-50s %5.1f%%  (%d -> %d tokens)\n",
-			marker, r.Timestamp, cmd, r.SavingsPct, r.RawTokens, r.FilteredTokens))
+		if color {
+			// Color the marker: yellow for 0% savings rows.
+			markerStr := " " + marker + " "
+			if isZero {
+				markerStr = ansiYellow + " " + marker + " " + ansiReset
+			}
+			// Dim the timestamp.
+			ts := ansiDim + r.Timestamp + ansiReset
+			// Color the savings %: green >10%, yellow 1-10%, red 0%.
+			var savingsStr string
+			switch {
+			case r.SavingsPct > 10:
+				savingsStr = ansiGreen + fmt.Sprintf("%5.1f%%", r.SavingsPct) + ansiReset
+			case r.SavingsPct > 0:
+				savingsStr = ansiYellow + fmt.Sprintf("%5.1f%%", r.SavingsPct) + ansiReset
+			default:
+				savingsStr = ansiRed + fmt.Sprintf("%5.1f%%", r.SavingsPct) + ansiReset
+			}
+			b.WriteString(fmt.Sprintf("%s%s  %-50s %s  (%d -> %d tokens)\n",
+				markerStr, ts, cmd, savingsStr, r.RawTokens, r.FilteredTokens))
+		} else {
+			b.WriteString(fmt.Sprintf(" %s %s  %-50s %5.1f%%  (%d -> %d tokens)\n",
+				marker, r.Timestamp, cmd, r.SavingsPct, r.RawTokens, r.FilteredTokens))
+		}
 	}
-	b.WriteString("\n ! = 0% savings (filter may need improvement)\n")
+	legend := "\n ! = 0% savings (filter may need improvement)\n"
+	if color {
+		legend = "\n" + ansiDim + " ! = 0% savings (filter may need improvement)" + ansiReset + "\n"
+	}
+	b.WriteString(legend)
 	return b.String()
 }
 
@@ -537,6 +645,28 @@ func FormatSummary(summaries []CommandSummary) string {
 	return b.String()
 }
 
+// FormatProjectSummary formats per-project aggregate savings.
+func FormatProjectSummary(summaries []ProjectSummary) string {
+	if len(summaries) == 0 {
+		return "no projects tracked yet"
+	}
+	var b strings.Builder
+	b.WriteString("per-project savings:\n")
+	b.WriteString(fmt.Sprintf("  %-40s %5s %8s %7s\n", "PROJECT", "CALLS", "SAVED", "AVG"))
+	for _, s := range summaries {
+		proj := s.Project
+		if proj == "" {
+			proj = "(unknown)"
+		}
+		if len(proj) > 40 {
+			proj = "..." + proj[len(proj)-37:]
+		}
+		b.WriteString(fmt.Sprintf("  %-40s %5d %8s %6.0f%%\n",
+			proj, s.Count, formatNum(s.SavedTokens), s.SavingsPct))
+	}
+	return b.String()
+}
+
 func formatNum(n int) string {
 	if n < 0 {
 		return "-" + formatNum(-n)
@@ -545,6 +675,52 @@ func formatNum(n int) string {
 		return fmt.Sprintf("%d", n)
 	}
 	return formatNum(n/1000) + fmt.Sprintf(",%03d", n%1000)
+}
+
+// gitRoot returns the git repository root for the current working directory,
+// or the working directory itself if not in a git repo.
+func gitRoot() string {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	out, err := cmd.Output()
+	if err != nil {
+		cwd, _ := os.Getwd()
+		return cwd
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// GetProjectSummary returns per-project aggregate stats, sorted by tokens saved descending.
+func GetProjectSummary() ([]ProjectSummary, error) {
+	if err := Init(); err != nil {
+		return nil, err
+	}
+	rows, err := db.Query(`
+		SELECT
+			COALESCE(project, '') AS proj,
+			COUNT(*) AS cnt,
+			COALESCE(SUM(raw_tokens), 0) AS raw,
+			COALESCE(SUM(raw_tokens - filtered_tokens), 0) AS saved
+		FROM tracking
+		GROUP BY proj
+		ORDER BY saved DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var summaries []ProjectSummary
+	for rows.Next() {
+		var s ProjectSummary
+		if err := rows.Scan(&s.Project, &s.Count, &s.RawTokens, &s.SavedTokens); err != nil {
+			return nil, err
+		}
+		if s.RawTokens > 0 {
+			s.SavingsPct = float64(s.SavedTokens) / float64(s.RawTokens) * 100.0
+		}
+		summaries = append(summaries, s)
+	}
+	return summaries, rows.Err()
 }
 
 func escapeLike(s string) string {
@@ -581,7 +757,7 @@ func GetHistorySince(limit int, d time.Duration) ([]Record, error) {
 	}
 	since := time.Now().Local().Add(-d).Format("2006-01-02 15:04:05")
 	rows, err := db.Query(
-		`SELECT timestamp, command, raw_tokens, filtered_tokens, savings_pct
+		`SELECT timestamp, command, raw_tokens, filtered_tokens, savings_pct, COALESCE(project, '')
          FROM tracking WHERE timestamp >= ? ORDER BY id DESC LIMIT ?`, since, limit)
 	if err != nil {
 		return nil, err
@@ -590,7 +766,7 @@ func GetHistorySince(limit int, d time.Duration) ([]Record, error) {
 	var records []Record
 	for rows.Next() {
 		var r Record
-		if err := rows.Scan(&r.Timestamp, &r.Command, &r.RawTokens, &r.FilteredTokens, &r.SavingsPct); err != nil {
+		if err := rows.Scan(&r.Timestamp, &r.Command, &r.RawTokens, &r.FilteredTokens, &r.SavingsPct, &r.Project); err != nil {
 			return nil, err
 		}
 		records = append(records, r)

@@ -44,7 +44,7 @@ func SetAutoUpdate(enabled bool) error {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(p, nil, 0o644)
+		return os.WriteFile(p, nil, 0o600)
 	}
 	err = os.Remove(p)
 	if os.IsNotExist(err) {
@@ -90,5 +90,5 @@ func recordUpdateAvailable(version string) {
 	if err != nil {
 		return
 	}
-	os.WriteFile(p, []byte(version), 0o644)
+	os.WriteFile(p, []byte(version), 0o600)
 }

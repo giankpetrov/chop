@@ -130,24 +130,25 @@ func buildRuleFilter(keep, drop []string, head, tail int) FilterFunc {
 }
 
 // buildExecFilter creates a FilterFunc that pipes output through an external command.
+// Command parsing and home expansion are done once at build time, not on each invocation.
 func buildExecFilter(execCmd string) FilterFunc {
+	parts := splitCommand(execCmd)
+	if len(parts) == 0 {
+		return nil
+	}
+	for i, p := range parts {
+		parts[i] = expandHome(p)
+	}
+	cmdStr := strings.Join(parts, " ")
+
 	return func(raw string) (string, error) {
-		parts := splitCommand(execCmd)
-		if len(parts) == 0 {
-			return raw, fmt.Errorf("empty exec command")
-		}
-
-		for i, p := range parts {
-			parts[i] = expandHome(p)
-		}
-
 		cmd := exec.Command(parts[0], parts[1:]...)
 		cmd.Stdin = strings.NewReader(raw)
 
 		out, err := cmd.Output()
 		if err != nil {
 			// On script failure, return raw output rather than losing data
-			return raw, fmt.Errorf("exec filter failed (%s): %w", strings.Join(parts, " "), err)
+			return raw, fmt.Errorf("exec filter failed (%s): %w", cmdStr, err)
 		}
 
 		return string(out), nil

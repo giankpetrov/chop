@@ -57,7 +57,7 @@ func touchLastCheck() {
 	if err != nil {
 		return
 	}
-	os.WriteFile(path, []byte(time.Now().Format(time.RFC3339)), 0o644)
+	os.WriteFile(path, []byte(time.Now().Format(time.RFC3339)), 0o600)
 }
 
 // ApplyPendingUpdate checks for a pending update downloaded in a previous run.
@@ -89,19 +89,27 @@ func ApplyPendingUpdate(currentVersion string) {
 		return
 	}
 
-	// Format: "version\ntmpBinaryPath"
-	parts := strings.SplitN(strings.TrimSpace(string(data)), "\n", 2)
-	if len(parts) != 2 {
+	// Format: "version\ntmpBinaryPath\nsha256hash"
+	parts := strings.SplitN(strings.TrimSpace(string(data)), "\n", 3)
+	if len(parts) != 3 {
 		os.Remove(pending)
 		return
 	}
 
 	newVersion := parts[0]
 	tmpBinary := parts[1]
+	expectedHash := parts[2]
 
-	// Verify the temp binary still exists and is valid
+	// Verify the temp binary still exists and matches the stored hash.
+	// Re-hashing at apply time closes the TOCTOU window between download and install.
 	info, err := os.Stat(tmpBinary)
 	if err != nil || info.Size() < 1024 {
+		os.Remove(pending)
+		os.Remove(tmpBinary)
+		return
+	}
+	actualHash, err := hashFile(tmpBinary)
+	if err != nil || actualHash != expectedHash {
 		os.Remove(pending)
 		os.Remove(tmpBinary)
 		return
@@ -197,6 +205,12 @@ func RunBackgroundUpdate(currentVersion string) {
 		return
 	}
 
-	content := fmt.Sprintf("%s\n%s", latest, tmpPath)
-	os.WriteFile(pending, []byte(content), 0o644)
+	hash, err := hashFile(tmpPath)
+	if err != nil {
+		os.Remove(tmpPath)
+		return
+	}
+
+	content := fmt.Sprintf("%s\n%s\n%s", latest, tmpPath, hash)
+	os.WriteFile(pending, []byte(content), 0o600)
 }

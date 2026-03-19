@@ -252,14 +252,72 @@ func TestFormatGain(t *testing.T) {
 
 func TestFormatHistory(t *testing.T) {
 	records := []Record{
-		{Timestamp: "2026-03-05 14:23:00", Command: "git status", RawTokens: 67, FilteredTokens: 8, SavingsPct: 88.1},
+		{Timestamp: "2026-03-05 14:23:00", Command: "git status", RawTokens: 67, FilteredTokens: 8, SavingsPct: 88.1, Project: "/home/user/dev/myapp"},
 	}
-	out := FormatHistory(records, false)
+	out := FormatHistory(records, false, false)
 	if !strings.Contains(out, "git status") {
 		t.Errorf("missing command in history: %s", out)
 	}
 	if !strings.Contains(out, "88.1%") {
 		t.Errorf("missing savings in history: %s", out)
+	}
+}
+
+func TestFormatHistoryVerboseProjectGroups(t *testing.T) {
+	records := []Record{
+		{Timestamp: "2026-03-19 13:45:49", Command: "git push", RawTokens: 100, FilteredTokens: 80, SavingsPct: 20.0, Project: "/home/user/dev/myapp"},
+		{Timestamp: "2026-03-19 13:45:47", Command: "git commit", RawTokens: 50, FilteredTokens: 40, SavingsPct: 20.0, Project: "/home/user/dev/myapp"},
+		{Timestamp: "2026-03-19 12:53:40", Command: "git push", RawTokens: 80, FilteredTokens: 60, SavingsPct: 25.0, Project: "/home/user/dev/other"},
+	}
+	out := FormatHistory(records, true, false)
+	if !strings.Contains(out, "[project: /home/user/dev/myapp]") {
+		t.Errorf("missing first project header in verbose output: %s", out)
+	}
+	if !strings.Contains(out, "[project: /home/user/dev/other]") {
+		t.Errorf("missing second project header in verbose output: %s", out)
+	}
+	// Non-verbose should not show project headers
+	outPlain := FormatHistory(records, false, false)
+	if strings.Contains(outPlain, "[project:") {
+		t.Errorf("non-verbose output should not contain project headers: %s", outPlain)
+	}
+}
+
+func TestGetHistoryByProject(t *testing.T) {
+	setupTestDB(t)
+
+	if err := Track("git status", 100, 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := Track("docker ps", 80, 30); err != nil {
+		t.Fatal(err)
+	}
+
+	// All tracked records come from the same project (gitRoot() of the test process).
+	// Insert a record manually with a different project.
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	_, err := db.Exec(
+		`INSERT INTO tracking (timestamp, command, raw_tokens, filtered_tokens, savings_pct, project) VALUES (?, ?, ?, ?, ?, ?)`,
+		"2026-03-19 10:00:00", "npm test", 200, 40, 80.0, "/other/project",
+	)
+	if err != nil {
+		t.Fatalf("failed to insert record with other project: %v", err)
+	}
+
+	records, err := GetHistoryByProject("/other/project", 10)
+	if err != nil {
+		t.Fatalf("GetHistoryByProject failed: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record for /other/project, got %d", len(records))
+	}
+	if records[0].Command != "npm test" {
+		t.Errorf("expected 'npm test', got %q", records[0].Command)
+	}
+	if records[0].Project != "/other/project" {
+		t.Errorf("expected project '/other/project', got %q", records[0].Project)
 	}
 }
 
@@ -556,7 +614,7 @@ func TestDeleteCommandWithWildcards(t *testing.T) {
 }
 
 func TestFormatHistoryEmpty(t *testing.T) {
-	out := FormatHistory(nil, false)
+	out := FormatHistory(nil, false, false)
 	if out != "no commands tracked yet" {
 		t.Errorf("unexpected empty history: %s", out)
 	}

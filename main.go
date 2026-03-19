@@ -146,6 +146,9 @@ func main() {
 	case "diff":
 		runDiff(os.Args[2:])
 		return
+	case "completion":
+		runCompletion(os.Args[2:])
+		return
 	case "init", "setup":
 		if len(os.Args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: chop init <--global|--gemini|--codex|--antigravity|--uninstall|--status|--agent-handshake>")
@@ -408,11 +411,28 @@ func runCapture(args []string) {
 }
 
 func runConfig(args []string) {
-	if len(args) > 0 && args[0] == "init" {
-		initConfig()
+	if len(args) == 0 {
+		showConfig()
 		return
 	}
+	switch args[0] {
+	case "init":
+		initConfig()
+	case "export":
+		configExport()
+	case "import":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop config import <file>")
+			os.Exit(1)
+		}
+		configImport(args[1])
+	default:
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop config [init|export|import]\n", args[0])
+		os.Exit(1)
+	}
+}
 
+func showConfig() {
 	path := config.Path()
 	fmt.Printf("config: %s\n", path)
 
@@ -432,6 +452,87 @@ func runConfig(args []string) {
 		fmt.Println("(config file is empty)")
 	} else {
 		fmt.Println(content)
+	}
+}
+
+// configExport writes config.yml and filters.yml to stdout as a portable archive.
+func configExport() {
+	cfgPath := config.Path()
+	filterPath := config.FiltersConfigPath()
+
+	exported := false
+	for _, p := range []string{cfgPath, filterPath} {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		fmt.Printf("# --- %s ---\n", filepath.Base(p))
+		fmt.Println(strings.TrimSpace(string(data)))
+		fmt.Println()
+		exported = true
+	}
+	if !exported {
+		fmt.Fprintln(os.Stderr, "chop: no config files found — run 'chop config init' first")
+		os.Exit(1)
+	}
+}
+
+// configImport reads a config file exported by configExport and writes each
+// section to the appropriate destination (config.yml or filters.yml).
+func configImport(src string) {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "chop: cannot read %s: %v\n", src, err)
+		os.Exit(1)
+	}
+
+	type section struct {
+		name    string
+		content strings.Builder
+	}
+
+	var sections []section
+	var cur *section
+
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "# --- ") && strings.HasSuffix(line, " ---") {
+			name := strings.TrimSuffix(strings.TrimPrefix(line, "# --- "), " ---")
+			sections = append(sections, section{name: name})
+			cur = &sections[len(sections)-1]
+			continue
+		}
+		if cur != nil {
+			cur.content.WriteString(line)
+			cur.content.WriteByte('\n')
+		}
+	}
+
+	if len(sections) == 0 {
+		fmt.Fprintln(os.Stderr, "chop: no sections found — file must be created with 'chop config export'")
+		os.Exit(1)
+	}
+
+	destFor := map[string]string{
+		"config.yml":  config.Path(),
+		"filters.yml": config.FiltersConfigPath(),
+	}
+
+	for _, s := range sections {
+		dest, ok := destFor[s.name]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "chop: unknown section %q — skipping\n", s.name)
+			continue
+		}
+		content := strings.TrimSpace(s.content.String()) + "\n"
+		if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to create dir for %s: %v\n", dest, err)
+			os.Exit(1)
+		}
+		if err := os.WriteFile(dest, []byte(content), 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", dest, err)
+			os.Exit(1)
+		}
+		fmt.Printf("imported: %s\n", dest)
 	}
 }
 
@@ -460,7 +561,7 @@ func initConfig() {
 disabled: []
 `
 
-	if err := os.WriteFile(path, []byte(starter), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(starter), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to write config: %v\n", err)
 		os.Exit(1)
 	}
@@ -470,8 +571,8 @@ disabled: []
 }
 
 func runGain(args []string) {
-	var showHistory, showSummary, showUnchopped, verbose, showAll bool
-	var skipCmd, unskipCmd, deleteCmd, noTrackCmd, resumeTrackCmd, exportFormat, sinceStr string
+	var showHistory, showSummary, showUnchopped, verbose, showAll, showProjects bool
+	var skipCmd, unskipCmd, deleteCmd, noTrackCmd, resumeTrackCmd, exportFormat, sinceStr, projectFilter string
 	historyLimit := 20
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -479,6 +580,13 @@ func runGain(args []string) {
 			showHistory = true
 		case "--summary":
 			showSummary = true
+		case "--projects":
+			showProjects = true
+		case "--project":
+			if i+1 < len(args) {
+				i++
+				projectFilter = args[i]
+			}
 		case "--unchopped":
 			showUnchopped = true
 		case "--verbose", "-v":
@@ -652,6 +760,16 @@ func runGain(args []string) {
 		return
 	}
 
+	if showProjects {
+		summaries, err := tracking.GetProjectSummary()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to read project summary: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(tracking.FormatProjectSummary(summaries))
+		return
+	}
+
 	if showHistory {
 		var records []tracking.Record
 		var err error
@@ -659,7 +777,9 @@ func runGain(args []string) {
 		if showAll {
 			limit = 10000
 		}
-		if sinceDuration > 0 {
+		if projectFilter != "" {
+			records, err = tracking.GetHistoryByProject(projectFilter, limit)
+		} else if sinceDuration > 0 {
 			records, err = tracking.GetHistorySince(limit, sinceDuration)
 		} else {
 			records, err = tracking.GetHistory(limit)
@@ -668,7 +788,7 @@ func runGain(args []string) {
 			fmt.Fprintf(os.Stderr, "chop: failed to read history: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Print(tracking.FormatHistory(records, verbose))
+		fmt.Print(tracking.FormatHistory(records, verbose, tracking.IsColorEnabled()))
 		return
 	}
 
@@ -1137,8 +1257,14 @@ func runFilter(args []string) {
 			os.Exit(1)
 		}
 		testFilter(args[1:])
+	case "new":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop filter new <command>")
+			os.Exit(1)
+		}
+		filterNew(strings.Join(args[1:], " "))
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop filter [path|init|add|remove|test]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop filter [path|init|add|remove|test|new]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -1225,7 +1351,7 @@ func initFiltersConfig(local bool) {
 filters: {}
 `
 
-	if err := os.WriteFile(path, []byte(starter), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(starter), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to write config: %v\n", err)
 		os.Exit(1)
 	}
@@ -1276,7 +1402,7 @@ func writeFilters(path string, filters map[string]config.CustomFilter) {
 		}
 	}
 
-	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(sb.String()), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", path, err)
 		os.Exit(1)
 	}
@@ -1433,6 +1559,59 @@ func testFilter(args []string) {
 	}
 
 	fmt.Print(result)
+}
+
+// filterNew scaffolds a new custom filter entry for the given command and
+// guides the user through the capture → diff → tune workflow.
+func filterNew(command string) {
+	filterPath := config.FiltersConfigPath()
+	cwd, _ := os.Getwd()
+
+	// Check if a filter already exists for this command
+	existing := config.LoadCustomFiltersWithLocal(cwd)
+	if _, ok := existing[command]; ok {
+		fmt.Printf("a filter for %q already exists in %s\n", command, filterPath)
+		fmt.Println("use 'chop filter add' to modify it")
+		return
+	}
+
+	// Ensure filters.yml exists
+	if _, err := os.Stat(filterPath); os.IsNotExist(err) {
+		initFiltersConfig(false)
+	}
+
+	// Build the scaffold entry
+	scaffold := fmt.Sprintf(`
+  # Filter for: %s
+  # Tune with: chop capture %s  (saves raw fixture)
+  #            chop diff %s     (shows compression preview)
+  "%s":
+    # keep: ["pattern1", "pattern2"]   # only lines matching these are kept
+    # drop: ["pattern1", "pattern2"]   # lines matching these are removed
+    # head: 50                         # keep first N lines (after keep/drop)
+    # tail: 20                         # keep last N lines (after keep/drop)
+    # exec: "~/.config/chop/scripts/%s.sh"  # pipe through external script
+`, command, command, command, command, strings.ReplaceAll(command, " ", "-"))
+
+	// Append to filters.yml
+	f, err := os.OpenFile(filterPath, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to open filters file: %v\n", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(scaffold); err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to write scaffold: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("scaffolded filter for %q in %s\n", command, filterPath)
+	fmt.Println()
+	fmt.Println("next steps:")
+	fmt.Printf("  1. chop capture %s          — capture real output as fixture\n", command)
+	fmt.Printf("  2. edit %s              — uncomment and tune the rules\n", filepath.Base(filterPath))
+	fmt.Printf("  3. chop diff %s             — preview compression before enabling\n", command)
+	fmt.Printf("  4. chop filter test %s      — verify against stdin\n", command)
 }
 
 func runAgentInfo() {
@@ -1608,12 +1787,287 @@ func runDoctor() {
 		issues++
 	}
 
+	// 5. Check tracking DB health
+	if err := tracking.Init(); err != nil {
+		fmt.Printf("[!] tracking database unavailable: %v\n", err)
+		fmt.Printf("    path: %s\n", tracking.DBPath())
+		fmt.Println("    fix: chop gain --delete (resets DB) or check file permissions")
+		issues++
+	} else {
+		fmt.Println("[ok] tracking database is healthy")
+	}
+
+	// 6. Check global config syntax
+	cfgPath := config.Path()
+	if _, err := os.Stat(cfgPath); err == nil {
+		if errs := config.Validate(cfgPath); len(errs) > 0 {
+			fmt.Printf("[!] config file has %d issue(s): %s\n", len(errs), cfgPath)
+			for _, e := range errs {
+				fmt.Printf("    - %s\n", e)
+			}
+			issues++
+		} else {
+			fmt.Println("[ok] global config is valid")
+		}
+	}
+
+	// 7. Check custom filters syntax (regex patterns + exec scripts)
+	filterPath := config.FiltersConfigPath()
+	if _, err := os.Stat(filterPath); err == nil {
+		if errs := config.ValidateFilters(filterPath); len(errs) > 0 {
+			fmt.Printf("[!] filters config has %d issue(s): %s\n", len(errs), filterPath)
+			for _, e := range errs {
+				fmt.Printf("    - %s\n", e)
+			}
+			issues++
+		} else {
+			fmt.Println("[ok] custom filters are valid")
+		}
+	}
+
 	if issues == 0 {
 		fmt.Println("\nall good!")
 	} else {
 		fmt.Printf("\n%d issue(s) found\n", issues)
 	}
 }
+
+func runCompletion(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: chop completion <bash|zsh|fish|powershell>")
+		fmt.Fprintln(os.Stderr, "\nAdd to your shell profile:")
+		fmt.Fprintln(os.Stderr, "  bash:        source <(chop completion bash)")
+		fmt.Fprintln(os.Stderr, "  zsh:         source <(chop completion zsh)")
+		fmt.Fprintln(os.Stderr, "  fish:        chop completion fish | source")
+		fmt.Fprintln(os.Stderr, "  powershell:  chop completion powershell | Invoke-Expression")
+		os.Exit(1)
+	}
+	switch args[0] {
+	case "bash":
+		fmt.Print(completionBash)
+	case "zsh":
+		fmt.Print(completionZsh)
+	case "fish":
+		fmt.Print(completionFish)
+	case "powershell":
+		fmt.Print(completionPowerShell)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown shell %q — supported: bash, zsh, fish, powershell\n", args[0])
+		os.Exit(1)
+	}
+}
+
+const completionBash = `# chop bash completion
+# Add to ~/.bashrc: source <(chop completion bash)
+_chop_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    local cmd="${COMP_WORDS[1]}"
+
+    local top_cmds="help version gain capture config filter local list diff init update auto-update enable disable doctor uninstall reset completion"
+
+    case "$cmd" in
+        gain)
+            case "$prev" in
+                --export) COMPREPLY=($(compgen -W "json csv" -- "$cur")) ;;
+                --since)  COMPREPLY=($(compgen -W "1h 6h 24h 7d 30d" -- "$cur")) ;;
+                --limit)  COMPREPLY=() ;;
+                *)        COMPREPLY=($(compgen -W "--history --summary --unchopped --verbose --all --since --limit --export --skip --unskip --delete --no-track --resume-track" -- "$cur")) ;;
+            esac ;;
+        filter)
+            if [[ ${COMP_CWORD} -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "path init add remove test new" -- "$cur"))
+            else
+                case "${COMP_WORDS[2]}" in
+                    add)  COMPREPLY=($(compgen -W "--keep --drop --head --tail --exec --local" -- "$cur")) ;;
+                    init) COMPREPLY=($(compgen -W "--local" -- "$cur")) ;;
+                esac
+            fi ;;
+        config)
+            if [[ ${COMP_CWORD} -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "init export import" -- "$cur"))
+            fi ;;
+        local)
+            if [[ ${COMP_CWORD} -eq 2 ]]; then
+                COMPREPLY=($(compgen -W "add remove clear" -- "$cur"))
+            fi ;;
+        init|setup)
+            COMPREPLY=($(compgen -W "--global --gemini --codex --antigravity --uninstall --status" -- "$cur")) ;;
+        completion)
+            COMPREPLY=($(compgen -W "bash zsh fish powershell" -- "$cur")) ;;
+        diff)
+            COMPREPLY=($(compgen -W "--stdin" -- "$cur")) ;;
+        uninstall)
+            COMPREPLY=($(compgen -W "--keep-data" -- "$cur")) ;;
+        *)
+            if [[ ${COMP_CWORD} -eq 1 ]]; then
+                COMPREPLY=($(compgen -W "$top_cmds" -- "$cur"))
+            fi ;;
+    esac
+}
+complete -F _chop_completion chop
+`
+
+const completionZsh = `# chop zsh completion
+# Add to ~/.zshrc: source <(chop completion zsh)
+_chop() {
+    local state
+
+    _arguments \
+        '1: :->cmd' \
+        '*: :->args'
+
+    case $state in
+        cmd)
+            _values 'command' \
+                'help' 'version' 'gain' 'capture' 'config' 'filter' 'local' \
+                'list' 'diff' 'init' 'update' 'auto-update' 'enable' 'disable' \
+                'doctor' 'uninstall' 'reset' 'completion'
+            ;;
+        args)
+            case ${words[2]} in
+                gain)
+                    _values 'option' \
+                        '--history' '--summary' '--unchopped' '--verbose' '--all' \
+                        '--since' '--limit' '--export' '--skip' '--unskip' \
+                        '--delete' '--no-track' '--resume-track'
+                    ;;
+                filter)
+                    if [[ ${#words} -eq 3 ]]; then
+                        _values 'subcommand' 'path' 'init' 'add' 'remove' 'test' 'new'
+                    else
+                        case ${words[3]} in
+                            add) _values 'option' '--keep' '--drop' '--head' '--tail' '--exec' '--local' ;;
+                            init) _values 'option' '--local' ;;
+                        esac
+                    fi ;;
+                config)
+                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'init' 'export' 'import' ;;
+                local)
+                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'add' 'remove' 'clear' ;;
+                init|setup)
+                    _values 'option' '--global' '--gemini' '--codex' '--antigravity' '--uninstall' '--status' ;;
+                completion)
+                    _values 'shell' 'bash' 'zsh' 'fish' 'powershell' ;;
+                diff)
+                    _values 'option' '--stdin' ;;
+                uninstall)
+                    _values 'option' '--keep-data' ;;
+            esac ;;
+    esac
+}
+compdef _chop chop
+`
+
+const completionFish = `# chop fish completion
+# Add to fish config: chop completion fish | source
+
+# Disable file completion by default
+complete -c chop -f
+
+# Top-level commands
+set -l cmds help version gain capture config filter local list diff init update auto-update enable disable doctor uninstall reset completion
+complete -c chop -n "not __fish_seen_subcommand_from $cmds" -a "$cmds"
+
+# gain
+complete -c chop -n "__fish_seen_subcommand_from gain" -l history    -d "Show recent command history"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l summary    -d "Per-command savings summary"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l unchopped  -d "Commands with no filter"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l verbose -s v -d "Verbose output"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l all        -d "Show all records"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l since      -d "Since duration (e.g. 24h)"  -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l limit      -d "Limit records"              -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l export     -d "Export format (json|csv)"   -r -a "json csv"
+complete -c chop -n "__fish_seen_subcommand_from gain" -l skip       -d "Skip command from unchopped" -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l unskip     -d "Remove command from skip list" -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l delete     -d "Delete history for command" -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l no-track   -d "Stop tracking command"      -r
+complete -c chop -n "__fish_seen_subcommand_from gain" -l resume-track -d "Resume tracking command"  -r
+
+# filter subcommands
+complete -c chop -n "__fish_seen_subcommand_from filter; and not __fish_seen_subcommand_from path init add remove test new" \
+    -a "path init add remove test new"
+complete -c chop -n "__fish_seen_subcommand_from filter; and __fish_seen_subcommand_from add" \
+    -l keep -l drop -l head -l tail -l exec -l local
+
+# config subcommands
+complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init export import" \
+    -a "init export import"
+
+# local subcommands
+complete -c chop -n "__fish_seen_subcommand_from local; and not __fish_seen_subcommand_from add remove clear" \
+    -a "add remove clear"
+
+# init flags
+complete -c chop -n "__fish_seen_subcommand_from init setup" \
+    -a "--global --gemini --codex --antigravity --uninstall --status"
+
+# completion shells
+complete -c chop -n "__fish_seen_subcommand_from completion" -a "bash zsh fish powershell"
+
+# diff
+complete -c chop -n "__fish_seen_subcommand_from diff" -l stdin -d "Read from stdin"
+
+# uninstall
+complete -c chop -n "__fish_seen_subcommand_from uninstall" -l keep-data -d "Keep tracking data"
+`
+
+const completionPowerShell = `# chop PowerShell completion
+# Add to $PROFILE: chop completion powershell | Invoke-Expression
+
+Register-ArgumentCompleter -Native -CommandName chop -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    $words = $commandAst.CommandElements
+    $cmd   = if ($words.Count -ge 2) { $words[1].Value } else { "" }
+
+    $topCmds = @(
+        'help','version','gain','capture','config','filter','local',
+        'list','diff','init','update','auto-update','enable','disable',
+        'doctor','uninstall','reset','completion'
+    )
+
+    $complete = {
+        param($list)
+        $list | Where-Object { $_ -like "$wordToComplete*" } |
+            ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
+    }
+
+    if ($words.Count -le 2) {
+        & $complete $topCmds
+        return
+    }
+
+    switch ($cmd) {
+        'gain' {
+            & $complete @('--history','--summary','--unchopped','--verbose','--all',
+                          '--since','--limit','--export','--skip','--unskip',
+                          '--delete','--no-track','--resume-track')
+        }
+        'filter' {
+            if ($words.Count -eq 3) {
+                & $complete @('path','init','add','remove','test','new')
+            } elseif ($words[2].Value -eq 'add') {
+                & $complete @('--keep','--drop','--head','--tail','--exec','--local')
+            } elseif ($words[2].Value -eq 'init') {
+                & $complete @('--local')
+            }
+        }
+        'config' {
+            if ($words.Count -eq 3) { & $complete @('init','export','import') }
+        }
+        'local' {
+            if ($words.Count -eq 3) { & $complete @('add','remove','clear') }
+        }
+        'init' { & $complete @('--global','--gemini','--codex','--antigravity','--uninstall','--status') }
+        'completion' { & $complete @('bash','zsh','fish','powershell') }
+        'diff' { & $complete @('--stdin') }
+        'uninstall' { & $complete @('--keep-data') }
+    }
+}
+`
 
 // validateCommand checks if a command name is safe to execute and exits if not.
 // Blocks shell metacharacters to prevent confusion and protect against
@@ -1639,123 +2093,171 @@ func buildExpectedHookCmd() (string, error) {
 }
 
 func printHelp() {
-	fmt.Printf(`chop %s - CLI output compressor for Claude Code
+	useColor := tracking.IsColorEnabled()
 
-Usage:
-  chop <command> [args...]    Run command and compress output
-  chop <subcommand>           Run a chop subcommand
+	// Color helpers — no-ops when color is off or output is piped.
+	bold := func(s string) string {
+		if useColor {
+			return "\033[1m" + s + "\033[0m"
+		}
+		return s
+	}
+	dim := func(s string) string {
+		if useColor {
+			return "\033[2m" + s + "\033[0m"
+		}
+		return s
+	}
+	cyan := func(s string) string {
+		if useColor {
+			return "\033[36m" + s + "\033[0m"
+		}
+		return s
+	}
+	yellow := func(s string) string {
+		if useColor {
+			return "\033[33m" + s + "\033[0m"
+		}
+		return s
+	}
 
-Subcommands:
-  gain                        Show token savings stats
-  gain --history              Recent commands with savings (default: last 20, truncated)
-  gain --history --limit N    Show last N commands
-  gain --history --all        Show all commands in range
-  gain --history --since <d>  History filtered to a time window (combinable with --limit/--all)
-  gain --history --verbose    Show full untruncated command strings
-  gain --summary              Per-command savings breakdown
-  gain --unchopped            Commands never compressed (new filter candidates)
-  gain --unchopped --skip X   Mark command X as intentionally not needing a filter
-  gain --unchopped --unskip X Remove command X from the skip list
-  gain --delete X             Permanently delete all tracking records for command X
-  gain --no-track X           Delete records for X and never track it again
-  gain --resume-track X       Re-enable tracking for a previously ignored command
-  gain --since <duration>     Filter stats to a time window (e.g. 7d, 2w, 24h, 30m)
-  gain --export json          Export history as JSON to stdout
-  gain --export csv           Export history as CSV to stdout
-  config                      Show global config path and contents
-  config init                 Create a starter global config.yml
-  setup --global              Install Claude Code hook (~/.claude/settings.json)
-  init --global               Alias for setup
-  init --agent-handshake      Output a high-signal discovery message for AI agents
-  init --gemini               Install Gemini CLI hook (~/.gemini/settings.json)
-  init --gemini --uninstall   Remove Gemini CLI hook
-  init --gemini --status      Check Gemini CLI hook status
-  init --codex                Install Codex CLI hook (~/.codex/settings.json)
-  init --codex --uninstall    Remove Codex CLI hook
-  init --codex --status       Check Codex CLI hook status
-  init --antigravity          Install Antigravity IDE hook (~/.antigravity/settings.json)
-  init --antigravity --uninstall Remove Antigravity IDE hook
-  init --antigravity --status Check Antigravity IDE hook status
-  init --uninstall            Remove Claude Code hook
-  init --status               Check if hooks are installed
-  hook-audit                  Show last 20 hook rewrite log entries
-  hook-audit --clear          Clear the hook audit log
-  uninstall                   Remove everything: hook, data, config, binary
-  uninstall --keep-data       Uninstall but preserve tracking history
-  reset                       Clear data (tracking, audit log) - keep installation
-  filter                      List custom user-defined filters
-  filter path                 Show filters config file path
-  filter init                 Create a starter ~/.config/chop/filters.yml
-  filter init --local         Create a starter .chop-filters.yml in current dir
-  filter add <cmd> [flags]    Add or update a filter (--keep, --drop, --head, --tail, --exec, --local)
-  filter remove <cmd>         Remove a filter (--local for project-level)
-  filter test <cmd>           Test a custom filter (reads stdin)
-  list                        List all built-in filters
-  diff <cmd> [args...]        Run command and show raw vs filtered output side-by-side
-  diff --stdin <cmd>          Read from stdin and show raw vs filtered comparison
-  local                       Show local project config (.chop.yml)
-  local add "git diff"        Disable a command in this project
-  local remove "git diff"     Re-enable a command in this project
-  local clear                 Remove local config
-  disable                     Bypass chop — hook passes through all commands
-  enable                      Resume chop — hook compresses commands again
-  doctor                      Check and fix common issues (hook path, install location)
-  changelog                   Show changes in the current version
-  changelog --full            Show full changelog history
-  agent-info                  Show JSON info for AI agents (path, version, hooks)
-  update                      Update to the latest version
-  auto-update                 Show auto-update status
-  auto-update on              Enable automatic background updates
-  auto-update off             Disable auto-updates (default) — notifies when outdated
-  --post-update-check         Check install location after an update (called automatically by update)
-  help                        Show this help
-  version                     Show version
+	// section prints a coloured group header.
+	section := func(name string) string {
+		return bold(cyan(name)) + "\n"
+	}
 
-Claude Code integration:
-  chop init --global          Register PreToolUse hook for Claude Code
-  chop init --uninstall       Remove the hook
-  chop init --status          Check hook installation status
+	// row formats one command entry: left-col plain text, right-col dimmed.
+	const colW = 40
+	row := func(cmd, desc string) string {
+		return fmt.Sprintf("  %-*s%s\n", colW, cmd, dim(desc))
+	}
 
-Gemini CLI integration:
-  chop init --gemini          Register BeforeTool hook for Gemini CLI
-  chop init --gemini --uninstall  Remove the hook
-  chop init --gemini --status     Check hook installation status
+	// flag highlights flag names in yellow within a description string.
+	flag := func(f string) string { return yellow(f) }
 
-Codex CLI integration:
-  chop init --codex           Register PreToolUse hook for Codex CLI
-  chop init --codex --uninstall  Remove the hook
-  chop init --codex --status     Check hook installation status
+	var b strings.Builder
 
-Antigravity IDE integration:
-  chop init --antigravity     Register PreToolUse hook for Antigravity IDE
-  chop init --antigravity --uninstall Remove the hook
-  chop init --antigravity --status Check hook installation status
+	// Header
+	b.WriteString(fmt.Sprintf("%s %s — CLI output compressor for AI agents\n\n", bold("chop"), version))
 
-Config (%s):
-  disabled: [cmd1, "git diff"]  Skip filtering for commands (supports subcommands)
+	// Usage
+	b.WriteString(bold("Usage") + "\n")
+	b.WriteString(row("chop <command> [args...]", "Wrap and compress a command's output"))
+	b.WriteString(row("chop <subcommand>", "Run a chop management subcommand"))
+	b.WriteString("\n")
 
-Local config (.chop.yml in project dir - managed via chop local):
-  disabled: ["git diff"]        Overrides global disabled list for this project
+	// Analytics
+	b.WriteString(section("Analytics"))
+	b.WriteString(row("gain", "Overall token savings summary"))
+	b.WriteString(row("gain "+flag("--history"), "Recent commands with savings (last 20)"))
+	b.WriteString(row("gain --history "+flag("--limit")+" N", "Show last N commands"))
+	b.WriteString(row("gain --history "+flag("--all"), "Show all records"))
+	b.WriteString(row("gain --history "+flag("--since")+" <d>", "Filter to time window (e.g. 7d, 2w, 24h)"))
+	b.WriteString(row("gain --history "+flag("--verbose"), "Full command strings + project groups"))
+	b.WriteString(row("gain --history "+flag("--project")+" <path>", "Filter history to a specific project"))
+	b.WriteString(row("gain "+flag("--summary"), "Per-command savings breakdown"))
+	b.WriteString(row("gain "+flag("--projects"), "Per-project savings breakdown"))
+	b.WriteString(row("gain "+flag("--unchopped"), "Commands with no filter (new candidates)"))
+	b.WriteString(row("gain --unchopped "+flag("--skip")+" X", "Mark X as intentionally unfiltered"))
+	b.WriteString(row("gain --unchopped "+flag("--unskip")+" X", "Remove X from the skip list"))
+	b.WriteString(row("gain "+flag("--delete")+" X", "Delete all tracking records for X"))
+	b.WriteString(row("gain "+flag("--no-track")+" X", "Delete records for X and stop tracking"))
+	b.WriteString(row("gain "+flag("--resume-track")+" X", "Re-enable tracking for X"))
+	b.WriteString(row("gain "+flag("--export")+" json|csv", "Export history to stdout"))
+	b.WriteString("\n")
 
-Custom filters (%s):
-  Define your own output compression rules for any command.
-  Run 'chop filter init' to create a starter config with examples.
+	// Filters
+	b.WriteString(section("Filters"))
+	b.WriteString(row("list", "List all built-in filters"))
+	b.WriteString(row("filter", "List custom user-defined filters"))
+	b.WriteString(row("filter new <cmd>", "Scaffold a new filter + guided workflow"))
+	b.WriteString(row("filter add <cmd> [flags]", flag("--keep")+" "+flag("--drop")+" "+flag("--head")+" "+flag("--tail")+" "+flag("--exec")+" "+flag("--local")))
+	b.WriteString(row("filter remove <cmd>", "Remove a filter ("+flag("--local")+" for project-level)"))
+	b.WriteString(row("filter test <cmd>", "Test a custom filter against stdin"))
+	b.WriteString(row("filter init", "Create starter global filters.yml"))
+	b.WriteString(row("filter init "+flag("--local"), "Create starter .chop-filters.yml in cwd"))
+	b.WriteString(row("filter path", "Show filters config file path"))
+	b.WriteString(row("diff <cmd> [args...]", "Show raw vs filtered output side-by-side"))
+	b.WriteString(row("diff "+flag("--stdin")+" <cmd>", "Diff using stdin instead of running command"))
+	b.WriteString("\n")
 
-  Rules (applied in order):
-    keep: [regex...]   Only keep lines matching at least one pattern
-    drop: [regex...]   Remove lines matching any pattern
-    head: N            Keep first N lines (after keep/drop)
-    tail: N            Keep last N lines (after keep/drop)
-    exec: script       Pipe output through an external script
+	// Config
+	b.WriteString(section("Config"))
+	b.WriteString(row("config", "Show global config path and contents"))
+	b.WriteString(row("config init", "Create a starter global config.yml"))
+	b.WriteString(row("config export", "Export config.yml + filters.yml to stdout"))
+	b.WriteString(row("config import <file>", "Import config from a file (created by export)"))
+	b.WriteString(row("local", "Show local project config (.chop.yml)"))
+	b.WriteString(row("local add \"git diff\"", "Disable a command in this project"))
+	b.WriteString(row("local remove \"git diff\"", "Re-enable a command in this project"))
+	b.WriteString(row("local clear", "Remove local project config"))
+	b.WriteString("\n")
 
-  Test with: echo "sample output" | chop filter test <command>
+	// Integrations
+	b.WriteString(section("Integrations"))
+	b.WriteString(row("init "+flag("--global"), "Install Claude Code hook (~/.claude/settings.json)"))
+	b.WriteString(row("init "+flag("--gemini"), "Install Gemini CLI hook (~/.gemini/settings.json)"))
+	b.WriteString(row("init "+flag("--codex"), "Install Codex CLI hook (~/.codex/settings.json)"))
+	b.WriteString(row("init "+flag("--antigravity"), "Install Antigravity IDE hook"))
+	b.WriteString(row("init --<platform> "+flag("--uninstall"), "Remove a platform hook"))
+	b.WriteString(row("init --<platform> "+flag("--status"), "Check a platform hook status"))
+	b.WriteString(row("init "+flag("--agent-handshake"), "Emit discovery message for AI agents"))
+	b.WriteString("\n")
 
-Examples:
-  chop git status             Compressed git status
-  chop docker ps              Compact container list
-  chop kubectl get pods       Filtered pod table
-  chop curl https://api.io    Auto-compressed JSON response
-  chop cat app.log            Pattern-grouped log lines with repeat counts
-  chop tail -f app.log        Same, for streaming log files
-`, version, config.Path(), config.FiltersConfigPath())
+	// Shell
+	b.WriteString(section("Shell"))
+	b.WriteString(row("completion bash", "Print bash completion script"))
+	b.WriteString(row("completion zsh", "Print zsh completion script"))
+	b.WriteString(row("completion fish", "Print fish completion script"))
+	b.WriteString(row("completion powershell", "Print PowerShell completion script"))
+	b.WriteString("\n")
+
+	// Maintenance
+	b.WriteString(section("Maintenance"))
+	b.WriteString(row("doctor", "Check hook, DB health, config, filter syntax"))
+	b.WriteString(row("update", "Update to the latest version"))
+	b.WriteString(row("auto-update", "Show auto-update status"))
+	b.WriteString(row("auto-update on|off", "Enable or disable automatic background updates"))
+	b.WriteString(row("enable / disable", "Resume or bypass chop globally"))
+	b.WriteString(row("uninstall", "Remove hook, data, config, and binary"))
+	b.WriteString(row("uninstall "+flag("--keep-data"), "Uninstall but preserve tracking history"))
+	b.WriteString(row("reset", "Clear tracking data and audit log"))
+	b.WriteString(row("hook-audit", "Show last 20 hook rewrite log entries"))
+	b.WriteString(row("hook-audit "+flag("--clear"), "Clear the hook audit log"))
+	b.WriteString("\n")
+
+	// Other
+	b.WriteString(section("Other"))
+	b.WriteString(row("version", "Show version"))
+	b.WriteString(row("agent-info", "Show JSON info for AI agents"))
+	b.WriteString(row("changelog", "Show changes in the current version"))
+	b.WriteString(row("changelog "+flag("--full"), "Show full changelog history"))
+	b.WriteString(row("help", "Show this help"))
+	b.WriteString("\n")
+
+	// Config reference
+	b.WriteString(bold("Config") + dim(" ("+config.Path()+")") + "\n")
+	b.WriteString(fmt.Sprintf("  %s [cmd1, \"git diff\"]  %s\n",
+		yellow("disabled:"), dim("Skip filtering for these commands")))
+	b.WriteString("\n")
+
+	// Custom filters reference
+	b.WriteString(bold("Custom filters") + dim(" ("+config.FiltersConfigPath()+")") + "\n")
+	b.WriteString(dim("  Run 'chop filter init' to create a starter config with examples.\n"))
+	b.WriteString(fmt.Sprintf("  %s [regex...]  %s\n", yellow("keep:"), dim("Only keep lines matching at least one pattern")))
+	b.WriteString(fmt.Sprintf("  %s [regex...]  %s\n", yellow("drop:"), dim("Remove lines matching any pattern")))
+	b.WriteString(fmt.Sprintf("  %s N           %s\n", yellow("head:"), dim("Keep first N lines (after keep/drop)")))
+	b.WriteString(fmt.Sprintf("  %s N           %s\n", yellow("tail:"), dim("Keep last N lines (after keep/drop)")))
+	b.WriteString(fmt.Sprintf("  %s script      %s\n", yellow("exec:"), dim("Pipe output through an external script (global config only)")))
+	b.WriteString("\n")
+
+	// Examples
+	b.WriteString(bold("Examples") + "\n")
+	b.WriteString(row("chop git status", "Compressed git status"))
+	b.WriteString(row("chop docker ps", "Compact container list"))
+	b.WriteString(row("chop kubectl get pods", "Filtered pod table"))
+	b.WriteString(row("chop curl https://api.io", "Auto-compressed JSON response"))
+	b.WriteString(row("chop cat app.log", "Pattern-grouped log lines with repeat counts"))
+
+	fmt.Print(b.String())
 }

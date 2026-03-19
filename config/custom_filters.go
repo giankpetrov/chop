@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -67,6 +69,47 @@ func parseCustomFiltersWithTrust(data []byte, trusted bool) map[string]CustomFil
 		cfg.Filters[k] = v
 	}
 	return cfg.Filters
+}
+
+// ValidateFilters checks a filters.yml file for issues: invalid YAML, bad regex
+// patterns, and missing exec scripts. Returns nil if everything looks good.
+func ValidateFilters(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []string{fmt.Sprintf("cannot read file: %v", err)}
+	}
+
+	var cfg CustomFiltersConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return []string{fmt.Sprintf("invalid YAML: %v", err)}
+	}
+
+	var errs []string
+	for cmd, f := range cfg.Filters {
+		for _, p := range f.Keep {
+			if _, err := regexp.Compile(p); err != nil {
+				errs = append(errs, fmt.Sprintf("%q keep pattern %q: %v", cmd, p, err))
+			}
+		}
+		for _, p := range f.Drop {
+			if _, err := regexp.Compile(p); err != nil {
+				errs = append(errs, fmt.Sprintf("%q drop pattern %q: %v", cmd, p, err))
+			}
+		}
+		if f.Exec != "" {
+			// Expand ~ for the existence check
+			execPath := f.Exec
+			if strings.HasPrefix(execPath, "~/") || strings.HasPrefix(execPath, "~\\") {
+				if home, err := os.UserHomeDir(); err == nil {
+					execPath = filepath.Join(home, execPath[2:])
+				}
+			}
+			if _, err := os.Stat(execPath); err != nil {
+				errs = append(errs, fmt.Sprintf("%q exec script %q: not found", cmd, f.Exec))
+			}
+		}
+	}
+	return errs
 }
 
 // LookupCustomFilter finds a custom filter for the given command and args.
