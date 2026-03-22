@@ -158,8 +158,10 @@ func filterAcliJiraWorkitemSearch(raw string) (string, error) {
 
 	// Build logical rows by merging wrapped continuation lines.
 	// A continuation row has empty Key column.
-	type row []string
-	var rows []row
+	type row struct {
+		cells []strings.Builder
+	}
+	var rows []*row
 
 	for _, line := range tableLines[1:] {
 		cells := parseCells(line)
@@ -171,13 +173,14 @@ func filterAcliJiraWorkitemSearch(raw string) (string, error) {
 			last := rows[len(rows)-1]
 			for i, cell := range cells {
 				if cell != "" {
-					last[i] += cell
+					last.cells[i].WriteString(cell)
 				}
 			}
-			rows[len(rows)-1] = last
 		} else {
-			r := make(row, len(cells))
-			copy(r, cells)
+			r := &row{cells: make([]strings.Builder, len(cells))}
+			for i, cell := range cells {
+				r.cells[i].WriteString(cell)
+			}
 			rows = append(rows, r)
 		}
 	}
@@ -188,10 +191,10 @@ func filterAcliJiraWorkitemSearch(raw string) (string, error) {
 
 	var out strings.Builder
 	for _, r := range rows {
-		k := safeIdx(r, keyIdx)
-		typ := safeIdx(r, typeIdx)
-		status := safeIdx(r, statusIdx)
-		summary := safeIdx(r, summaryIdx)
+		k := safeIdxBuilder(r.cells, keyIdx)
+		typ := safeIdxBuilder(r.cells, typeIdx)
+		status := safeIdxBuilder(r.cells, statusIdx)
+		summary := safeIdxBuilder(r.cells, summaryIdx)
 		if k == "" {
 			continue
 		}
@@ -203,6 +206,13 @@ func filterAcliJiraWorkitemSearch(raw string) (string, error) {
 		return raw, nil
 	}
 	return outputSanityCheck(raw, result), nil
+}
+
+func safeIdxBuilder(s []strings.Builder, i int) string {
+	if i < 0 || i >= len(s) {
+		return ""
+	}
+	return s[i].String()
 }
 
 func safeIdx(s []string, i int) string {
