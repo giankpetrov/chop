@@ -217,7 +217,7 @@ filters:
   "mycli build":
     keep: ["ERROR"]
 `
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -256,7 +256,7 @@ func TestLoadCustomFilters_InvalidYAML(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(configPath, []byte("invalid: yaml: {"), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte("invalid: yaml: {"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -286,7 +286,7 @@ filters:
   "local-tool":
     drop: ["noise"]
 `
-	if err := os.WriteFile(localPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(localPath, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -317,7 +317,7 @@ filters:
   "common-tool":
     head: 10
 `
-	if err := os.WriteFile(globalConfigPath, []byte(globalContent), 0o644); err != nil {
+	if err := os.WriteFile(globalConfigPath, []byte(globalContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -330,7 +330,7 @@ filters:
   "common-tool":
     tail: 5
 `
-	if err := os.WriteFile(localConfigPath, []byte(localContent), 0o644); err != nil {
+	if err := os.WriteFile(localConfigPath, []byte(localContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -407,7 +407,7 @@ filters:
   "mycli build":
     keep: ["ERROR"]
 `
-	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 
