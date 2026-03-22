@@ -369,10 +369,12 @@ func runCapture(args []string) {
 	}
 	ts := time.Now().Format("20060102-150405")
 	var baseName string
+	safeCommand := sanitizeFilename(command)
 	if subcommand != "" {
-		baseName = fmt.Sprintf("%s-%s-%s", command, subcommand, ts)
+		safeSubcommand := sanitizeFilename(subcommand)
+		baseName = fmt.Sprintf("%s-%s-%s", safeCommand, safeSubcommand, ts)
 	} else {
-		baseName = fmt.Sprintf("%s-%s", command, ts)
+		baseName = fmt.Sprintf("%s-%s", safeCommand, ts)
 	}
 
 	fixtureDir := filepath.Join("tests", "fixtures")
@@ -2077,6 +2079,15 @@ func validateCommand(cmd string) {
 		fmt.Fprintf(os.Stderr, "chop: invalid command name %q\n", cmd)
 		os.Exit(1)
 	}
+}
+
+// sanitizeFilename replaces path separators and traversal sequences to prevent
+// writing files outside the intended directory.
+func sanitizeFilename(s string) string {
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, "..", "__")
+	return s
 }
 
 func buildExpectedHookCmd() (string, error) {
