@@ -1035,7 +1035,7 @@ func writeLocalConfig(disabled []string) {
 	}
 	b.WriteString("]\n")
 
-	if err := os.WriteFile(localConfigFile, []byte(b.String()), 0o644); err != nil {
+	if err := os.WriteFile(localConfigFile, []byte(b.String()), 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", localConfigFile, err)
 		os.Exit(1)
 	}

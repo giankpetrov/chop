@@ -207,7 +207,7 @@ func readSettings(path string) (map[string]interface{}, error) {
 }
 
 func writeSettings(path string, settings map[string]interface{}) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 	data, err := json.MarshalIndent(settings, "", "  ")
@@ -215,7 +215,7 @@ func writeSettings(path string, settings map[string]interface{}) error {
 		return fmt.Errorf("failed to marshal settings: %w", err)
 	}
 	data = append(data, '\n')
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func isChopHook(hookObj map[string]interface{}) bool {

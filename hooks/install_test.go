@@ -38,7 +38,7 @@ func writeJSON(t *testing.T, path string, v interface{}) {
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatalf("failed to write: %v", err)
 	}
 }
