@@ -149,7 +149,7 @@ func TestLoadWithLocal_NoLocalFile(t *testing.T) {
 	// Set up global config
 	dir := t.TempDir()
 	globalPath := filepath.Join(dir, "config.yml")
-	os.WriteFile(globalPath, []byte("disabled: [git, docker]\n"), 0o644)
+	os.WriteFile(globalPath, []byte("disabled: [git, docker]\n"), 0600)
 
 	cfg := LoadFrom(globalPath)
 	if len(cfg.Disabled) != 2 {
@@ -161,7 +161,7 @@ func TestLoadWithLocal_OverridesGlobal(t *testing.T) {
 	// Create a project dir with .chop.yml
 	projectDir := t.TempDir()
 	localPath := filepath.Join(projectDir, ".chop.yml")
-	os.WriteFile(localPath, []byte(`disabled: ["git diff"]`+"\n"), 0o644)
+	os.WriteFile(localPath, []byte(`disabled: ["git diff"]`+"\n"), 0600)
 
 	// LoadFrom for the local file
 	local := LoadFrom(localPath)
@@ -215,7 +215,7 @@ func writeTemp(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yml")
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 	return path
