@@ -18,7 +18,7 @@ func dataDir() (string, error) {
 		return "", err
 	}
 	dir := filepath.Join(home, ".local", "share", "chop")
-	os.MkdirAll(dir, 0o755)
+	os.MkdirAll(dir, 0o700)
 	return dir, nil
 }
 

@@ -140,6 +140,9 @@ func main() {
 	case "local":
 		runLocal(os.Args[2:])
 		return
+	case "global":
+		runGlobal(os.Args[2:])
+		return
 	case "list":
 		runList()
 		return
@@ -290,15 +293,11 @@ func main() {
 		fullCmd = command + " " + strings.Join(args, " ")
 	}
 
-	subCmd := ""
-	if len(args) > 0 {
-		subCmd = args[0]
-	}
 	var finalOutput string
 	// Never compress failed command output — error messages must be preserved in full.
 	if exitCode != 0 {
 		finalOutput = raw
-	} else if cfg.IsDisabled(command, subCmd) {
+	} else if cfg.IsDisabled(command, args...) {
 		finalOutput = raw
 	} else {
 		filter := filters.Get(command, args)
@@ -436,24 +435,22 @@ func runConfig(args []string) {
 
 func showConfig() {
 	path := config.Path()
-	fmt.Printf("config: %s\n", path)
+	fmt.Printf("%s %s\n", bold("config:"), cyan(path))
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("(no config file found)")
-			fmt.Println("\nrun 'chop config init' to create a starter config")
-		} else {
-			fmt.Fprintf(os.Stderr, "chop: failed to read config: %v\n", err)
-		}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Println("(no config file found)")
+		fmt.Println("\nrun 'chop config init' to create a starter config")
 		return
 	}
 
-	content := strings.TrimSpace(string(data))
-	if content == "" {
-		fmt.Println("(config file is empty)")
-	} else {
-		fmt.Println(content)
+	cfg := config.Load()
+	if len(cfg.Disabled) == 0 {
+		fmt.Printf("%s %s\n", bold("disabled:"), dim("(none)"))
+		return
+	}
+	fmt.Println(bold("disabled:"))
+	for _, d := range cfg.Disabled {
+		fmt.Printf("  %s %s\n", dim("-"), yellow(d))
 	}
 }
 
@@ -547,7 +544,7 @@ func initConfig() {
 	}
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
 		os.Exit(1)
 	}
@@ -1079,6 +1076,113 @@ func ensureGitignore() {
 		fmt.Fprintln(f, entry)
 	}
 	fmt.Printf("added %s to .gitignore\n", strings.Join(toAdd, ", "))
+}
+
+func runGlobal(args []string) {
+	if len(args) == 0 {
+		showGlobalConfig()
+		return
+	}
+
+	switch args[0] {
+	case "add":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop global add <command>")
+			os.Exit(1)
+		}
+		globalAdd(args[1:])
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: chop global remove <command>")
+			os.Exit(1)
+		}
+		globalRemove(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop global [add|remove]\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func showGlobalConfig() {
+	path := config.Path()
+	fmt.Printf("%s %s\n", bold("config:"), cyan(path))
+
+	cfg := config.Load()
+	if len(cfg.Disabled) == 0 {
+		fmt.Printf("%s %s\n", bold("disabled:"), dim("(none)"))
+		return
+	}
+	fmt.Println(bold("disabled:"))
+	for _, d := range cfg.Disabled {
+		fmt.Printf("  %s %s\n", dim("-"), yellow(d))
+	}
+}
+
+func globalAdd(commands []string) {
+	path := config.Path()
+	cfg := config.Load()
+
+	// Ensure config file exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	for _, cmd := range commands {
+		found := false
+		for _, d := range cfg.Disabled {
+			if strings.EqualFold(d, cmd) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cfg.Disabled = append(cfg.Disabled, cmd)
+		}
+	}
+
+	writeGlobalConfig(cfg.Disabled)
+	for _, cmd := range commands {
+		fmt.Printf("disabled globally: %s\n", cmd)
+	}
+}
+
+func globalRemove(commands []string) {
+	cfg := config.Load()
+
+	for _, cmd := range commands {
+		for i, d := range cfg.Disabled {
+			if strings.EqualFold(d, cmd) {
+				cfg.Disabled = append(cfg.Disabled[:i], cfg.Disabled[i+1:]...)
+				break
+			}
+		}
+	}
+
+	writeGlobalConfig(cfg.Disabled)
+	for _, cmd := range commands {
+		fmt.Printf("enabled globally: %s\n", cmd)
+	}
+}
+
+func writeGlobalConfig(disabled []string) {
+	var b strings.Builder
+	b.WriteString("disabled: [")
+	for i, d := range disabled {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(fmt.Sprintf("%q", d))
+	}
+	b.WriteString("]\n")
+
+	path := config.Path()
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to write %s: %v\n", path, err)
+		os.Exit(1)
+	}
 }
 
 func runList() {
@@ -2198,6 +2302,9 @@ func printHelp() {
 	b.WriteString(row("config init", "Create a starter global config.yml"))
 	b.WriteString(row("config export", "Export config.yml + filters.yml to stdout"))
 	b.WriteString(row("config import <file>", "Import config from a file (created by export)"))
+	b.WriteString(row("global", "Show global config"))
+	b.WriteString(row("global add \"git diff --cached\"", "Disable a command globally"))
+	b.WriteString(row("global remove \"git diff --cached\"", "Re-enable a command globally"))
 	b.WriteString(row("local", "Show local project config (.chop.yml)"))
 	b.WriteString(row("local add \"git diff\"", "Disable a command in this project"))
 	b.WriteString(row("local remove \"git diff\"", "Re-enable a command in this project"))

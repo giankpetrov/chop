@@ -138,6 +138,46 @@ func TestIsDisabled_BaseMatchesAllSubcommands(t *testing.T) {
 	}
 }
 
+func TestIsDisabled_FlagLevel(t *testing.T) {
+	cfg := Config{Disabled: []string{"git diff --cached", "git diff main...HEAD"}}
+
+	// Exact flag matches
+	if !cfg.IsDisabled("git", "diff", "--cached") {
+		t.Error("expected 'git diff --cached' to be disabled")
+	}
+	if !cfg.IsDisabled("git", "diff", "main...HEAD") {
+		t.Error("expected 'git diff main...HEAD' to be disabled")
+	}
+
+	// Other git diff variants should NOT be disabled
+	if cfg.IsDisabled("git", "diff") {
+		t.Error("expected bare 'git diff' to NOT be disabled")
+	}
+	if cfg.IsDisabled("git", "diff", "--stat") {
+		t.Error("expected 'git diff --stat' to NOT be disabled")
+	}
+
+	// Unrelated commands not disabled
+	if cfg.IsDisabled("git", "status") {
+		t.Error("expected 'git status' to NOT be disabled")
+	}
+}
+
+func TestIsDisabled_SubcommandPrefixMatchesFlags(t *testing.T) {
+	cfg := Config{Disabled: []string{"git diff"}}
+
+	// "git diff" should disable all git diff variants
+	if !cfg.IsDisabled("git", "diff", "--cached") {
+		t.Error("expected 'git diff --cached' disabled when 'git diff' is listed")
+	}
+	if !cfg.IsDisabled("git", "diff", "main...HEAD") {
+		t.Error("expected 'git diff main...HEAD' disabled when 'git diff' is listed")
+	}
+	if !cfg.IsDisabled("git", "diff") {
+		t.Error("expected bare 'git diff' disabled")
+	}
+}
+
 func TestIsDisabled_Empty(t *testing.T) {
 	cfg := Config{}
 	if cfg.IsDisabled("git") {

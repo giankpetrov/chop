@@ -35,22 +35,28 @@ func LoadFrom(path string) Config {
 	return parse(string(data))
 }
 
-// IsDisabled returns true if the given base command (and optional subcommand)
-// matches an entry in the disabled list.
+// IsDisabled returns true if the given command and args match an entry in the
+// disabled list. Matching is prefix-based, so a shorter entry disables all
+// commands that start with it.
 //
 // Matching rules:
-//   - "git" disables all git subcommands
-//   - "git diff" disables only "git diff"
+//   - "git"             disables all git subcommands
+//   - "git diff"        disables any "git diff ..." invocation
+//   - "git diff --cached" disables only that exact flag combination
 //
-// Call with: IsDisabled("git", "diff") or IsDisabled("git")
+// Call with: IsDisabled("git", "diff", "--cached") or IsDisabled("git", "diff")
 func (c Config) IsDisabled(command string, args ...string) bool {
-	fullCmd := command
-	if len(args) > 0 && args[0] != "" {
-		fullCmd = command + " " + args[0]
+	parts := []string{command}
+	for _, a := range args {
+		if a != "" {
+			parts = append(parts, a)
+		}
 	}
+	fullCmd := strings.ToLower(strings.Join(parts, " "))
+
 	for _, d := range c.Disabled {
-		// Exact match on full "cmd subcmd" or base "cmd"
-		if strings.EqualFold(d, fullCmd) || strings.EqualFold(d, command) {
+		d = strings.ToLower(d)
+		if fullCmd == d || strings.HasPrefix(fullCmd, d+" ") {
 			return true
 		}
 	}

@@ -41,7 +41,7 @@ func SetAutoUpdate(enabled bool) error {
 		return err
 	}
 	if enabled {
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 			return err
 		}
 		return os.WriteFile(p, nil, 0o600)
