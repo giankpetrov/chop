@@ -29,7 +29,7 @@ func TestShouldCheck_StaleCheck(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	path, _ := lastCheckPath()
-	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.MkdirAll(filepath.Dir(path), 0o700)
 	os.WriteFile(path, []byte("old"), 0o644)
 	stale := time.Now().Add(-25 * time.Hour)
 	os.Chtimes(path, stale, stale)
@@ -54,7 +54,7 @@ func TestApplyPendingUpdate_InvalidMarker(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	path, _ := pendingUpdatePath()
-	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.MkdirAll(filepath.Dir(path), 0o700)
 	os.WriteFile(path, []byte("v2.0.0"), 0o644) // missing binary path
 
 	ApplyPendingUpdate("v1.0.0")
@@ -69,7 +69,7 @@ func TestApplyPendingUpdate_MissingBinary(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	path, _ := pendingUpdatePath()
-	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.MkdirAll(filepath.Dir(path), 0o700)
 	os.WriteFile(path, []byte("v2.0.0\n/nonexistent/chop.new"), 0o644)
 
 	ApplyPendingUpdate("v1.0.0")
@@ -107,8 +107,8 @@ func TestReplaceBinary(t *testing.T) {
 	dest := filepath.Join(dir, "chop")
 	src := filepath.Join(dir, "chop.new")
 
-	os.WriteFile(dest, []byte("old"), 0o755)
-	os.WriteFile(src, []byte("new"), 0o755)
+	os.WriteFile(dest, []byte("old"), 0o700)
+	os.WriteFile(src, []byte("new"), 0o700)
 
 	if err := replaceBinary(dest, src); err != nil {
 		t.Fatalf("replaceBinary failed: %v", err)

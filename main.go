@@ -1058,7 +1058,7 @@ func ensureGitignore() {
 		return
 	}
 
-	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return // silent - don't break the command for .gitignore issues
 	}
@@ -1424,7 +1424,7 @@ func initFiltersConfig(local bool) {
 
 	if !local {
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
 			os.Exit(1)
 		}
@@ -1587,7 +1587,7 @@ func filterAdd(args []string) {
 
 	if !local {
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			fmt.Fprintf(os.Stderr, "chop: failed to create config dir: %v\n", err)
 			os.Exit(1)
 		}

@@ -264,7 +264,7 @@ func TestReplaceBinary_DestMissing(t *testing.T) {
 	src := filepath.Join(dir, "src")
 	dest := filepath.Join(dir, "dest")
 
-	os.WriteFile(src, []byte("new"), 0o755)
+	os.WriteFile(src, []byte("new"), 0o700)
 	// dest does not exist — should still succeed
 	if err := replaceBinary(dest, src); err != nil {
 		t.Fatalf("replaceBinary with no existing dest: %v", err)
@@ -292,10 +292,10 @@ func TestApplyPendingUpdate_AutoUpdateOff_CleansUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.MkdirAll(filepath.Dir(pendingPath), 0o755)
+	os.MkdirAll(filepath.Dir(pendingPath), 0o700)
 
 	fakebin := filepath.Join(t.TempDir(), "chop.new")
-	os.WriteFile(fakebin, []byte("binary"), 0o755)
+	os.WriteFile(fakebin, []byte("binary"), 0o700)
 
 	content := "v2.0.0\n" + fakebin
 	os.WriteFile(pendingPath, []byte(content), 0o600)
