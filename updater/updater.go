@@ -127,7 +127,7 @@ func download(url, destPath string) error {
 		return fmt.Errorf("download returned %d for %s", resp.StatusCode, url)
 	}
 
-	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o700)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}

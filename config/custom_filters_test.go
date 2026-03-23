@@ -253,7 +253,7 @@ func TestLoadCustomFilters_InvalidYAML(t *testing.T) {
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(configPath, []byte("invalid: yaml: {"), 0600); err != nil {
@@ -306,7 +306,7 @@ filters:
 	defer os.Setenv("XDG_CONFIG_HOME", oldXDG)
 
 	globalConfigDir := filepath.Join(tmpXDG, "chop")
-	if err := os.MkdirAll(globalConfigDir, 0o755); err != nil {
+	if err := os.MkdirAll(globalConfigDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	globalConfigPath := filepath.Join(globalConfigDir, "filters.yml")
@@ -398,7 +398,7 @@ func TestLoadCustomFilters(t *testing.T) {
 
 	// Create the expected config file path
 	configPath := filepath.Join(tmpDir, "chop", "filters.yml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
 

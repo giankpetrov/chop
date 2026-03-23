@@ -31,7 +31,7 @@ func readJSON(t *testing.T, path string) map[string]interface{} {
 
 func writeJSON(t *testing.T, path string, v interface{}) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatalf("failed to create dir: %v", err)
 	}
 	data, err := json.MarshalIndent(v, "", "  ")
