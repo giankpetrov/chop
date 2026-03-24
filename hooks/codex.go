@@ -10,11 +10,36 @@ import (
 // codexHookInput represents the JSON payload from Codex CLI's PreToolUse hook.
 // Based on typical PreToolUse implementations.
 type codexHookInput struct {
-	SessionID     string          `json:"session_id"`
-	Cwd           string          `json:"cwd"`
-	HookEventName string          `json:"hook_event_name"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
+	SessionID          string          `json:"session_id"`
+	SessionIDCamel     string          `json:"sessionId"`
+	Cwd                string          `json:"cwd"`
+	HookEventName      string          `json:"hook_event_name"`
+	HookEventNameCamel string          `json:"hookEventName"`
+	ToolName           string          `json:"tool_name"`
+	ToolNameCamel      string          `json:"toolName"`
+	ToolInput          json.RawMessage `json:"tool_input"`
+	ToolInputCamel     json.RawMessage `json:"toolInput"`
+}
+
+func (h codexHookInput) GetToolName() string {
+	if h.ToolName != "" {
+		return h.ToolName
+	}
+	return h.ToolNameCamel
+}
+
+func (h codexHookInput) GetHookEventName() string {
+	if h.HookEventName != "" {
+		return h.HookEventName
+	}
+	return h.HookEventNameCamel
+}
+
+func (h codexHookInput) GetToolInput() json.RawMessage {
+	if len(h.ToolInput) > 0 {
+		return h.ToolInput
+	}
+	return h.ToolInputCamel
 }
 
 // codexToolInput matches Codex CLI's bash tool input.
@@ -60,8 +85,13 @@ func processCodexHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
+	if h.GetHookEventName() != "PreToolUse" {
+		return nil, false, ""
+	}
+
 	// Codex CLI uses "bash" or "Bash"
-	if h.ToolName != "bash" && h.ToolName != "Bash" {
+	toolName := h.GetToolName()
+	if toolName != "bash" && toolName != "Bash" {
 		return nil, false, ""
 	}
 
@@ -70,12 +100,21 @@ func processCodexHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	var ti codexToolInput
-	if err := json.Unmarshal(h.ToolInput, &ti); err != nil {
+	var rti resilientToolInput
+	if err := json.Unmarshal(h.GetToolInput(), &rti); err != nil {
 		return nil, false, ""
 	}
 
-	wrapped, shouldModify, original := rewriteCommand(ti.Command)
+	cmd := rti.Command
+	if cmd == "" {
+		if rti.CmdUpper != "" {
+			cmd = rti.CmdUpper
+		} else {
+			cmd = rti.CmdLower
+		}
+	}
+
+	wrapped, shouldModify, original := rewriteCommand(cmd)
 	if !shouldModify {
 		return nil, false, original
 	}
