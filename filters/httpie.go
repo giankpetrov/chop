@@ -71,11 +71,13 @@ func filterHttpie(raw string) (string, error) {
 		return truncated, nil
 	}
 
+	var result string
 	if statusLine != "" {
-		result := statusLine + "\n" + trimmedBody
-		return outputSanityCheck(raw, result), nil
+		result = statusLine + "\n" + trimmedBody
+	} else {
+		result = trimmedBody
 	}
-	return outputSanityCheck(raw, trimmedBody), nil
+	return outputSanityCheck(raw, redactHeaders(result)), nil
 }
 
 // isHttpieError detects httpie error messages.

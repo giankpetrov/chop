@@ -601,6 +601,10 @@ func isHexPrefix(s string) bool {
 // outputSanityCheck returns raw if the filtered result is strictly longer than the raw input.
 // Equal length is allowed since some filters reformat without compressing (e.g., git branch reorder).
 func outputSanityCheck(raw, result string) string {
+	// Always prefer redacted output even if it's slightly longer
+	if strings.Contains(result, "[REDACTED]") {
+		return result
+	}
 	if len(result) > len(raw) {
 		return raw
 	}

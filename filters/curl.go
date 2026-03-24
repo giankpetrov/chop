@@ -2,6 +2,7 @@ package filters
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -69,11 +70,24 @@ func filterCurl(raw string) (string, error) {
 		return truncated, nil
 	}
 
+	var result string
 	if statusLine != "" {
-		result := statusLine + "\n" + trimmedBody
-		return outputSanityCheck(raw, result), nil
+		result = statusLine + "\n" + trimmedBody
+	} else {
+		result = trimmedBody
 	}
-	return outputSanityCheck(raw, trimmedBody), nil
+	return outputSanityCheck(raw, redactHeaders(result)), nil
+}
+
+// redactHeaders replaces sensitive HTTP headers with [REDACTED].
+func redactHeaders(input string) string {
+	re := regexp.MustCompile(`(?i)(^|[\r\n]|>\s*|<\s*)(authorization|cookie|set-cookie|x-api-key|x-auth-token):\s*[^\r\n]+`)
+	return re.ReplaceAllStringFunc(input, func(match string) string {
+		if idx := strings.Index(match, ":"); idx != -1 {
+			return match[:idx+1] + " [REDACTED]"
+		}
+		return match
+	})
 }
 
 // isCurlError detects curl error messages.
