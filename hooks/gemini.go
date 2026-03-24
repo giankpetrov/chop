@@ -9,11 +9,36 @@ import (
 
 // geminiHookInput represents the JSON payload from Gemini CLI's BeforeTool hook.
 type geminiHookInput struct {
-	SessionID     string          `json:"session_id"`
-	Cwd           string          `json:"cwd"`
-	HookEventName string          `json:"hook_event_name"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
+	SessionID          string          `json:"session_id"`
+	SessionIDCamel     string          `json:"sessionId"`
+	Cwd                string          `json:"cwd"`
+	HookEventName      string          `json:"hook_event_name"`
+	HookEventNameCamel string          `json:"hookEventName"`
+	ToolName           string          `json:"tool_name"`
+	ToolNameCamel      string          `json:"toolName"`
+	ToolInput          json.RawMessage `json:"tool_input"`
+	ToolInputCamel     json.RawMessage `json:"toolInput"`
+}
+
+func (h geminiHookInput) GetToolName() string {
+	if h.ToolName != "" {
+		return h.ToolName
+	}
+	return h.ToolNameCamel
+}
+
+func (h geminiHookInput) GetHookEventName() string {
+	if h.HookEventName != "" {
+		return h.HookEventName
+	}
+	return h.HookEventNameCamel
+}
+
+func (h geminiHookInput) GetToolInput() json.RawMessage {
+	if len(h.ToolInput) > 0 {
+		return h.ToolInput
+	}
+	return h.ToolInputCamel
 }
 
 // geminiToolInput matches Gemini CLI's run_shell_command tool input.
@@ -58,7 +83,11 @@ func processGeminiHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	if h.ToolName != "run_shell_command" {
+	if h.GetHookEventName() != "BeforeTool" {
+		return nil, false, ""
+	}
+
+	if h.GetToolName() != "run_shell_command" {
 		return nil, false, ""
 	}
 
@@ -67,12 +96,21 @@ func processGeminiHookInput(input []byte) ([]byte, bool, string) {
 		return nil, false, ""
 	}
 
-	var ti geminiToolInput
-	if err := json.Unmarshal(h.ToolInput, &ti); err != nil {
+	var rti resilientToolInput
+	if err := json.Unmarshal(h.GetToolInput(), &rti); err != nil {
 		return nil, false, ""
 	}
 
-	wrapped, shouldModify, original := rewriteCommand(ti.Command)
+	cmd := rti.Command
+	if cmd == "" {
+		if rti.CmdUpper != "" {
+			cmd = rti.CmdUpper
+		} else {
+			cmd = rti.CmdLower
+		}
+	}
+
+	wrapped, shouldModify, original := rewriteCommand(cmd)
 	if !shouldModify {
 		return nil, false, original
 	}

@@ -120,6 +120,13 @@ type hookSpecificOutput struct {
 	UpdatedInput       toolInput `json:"updatedInput"`
 }
 
+// resilientToolInput is used to gracefully handle input field name variations.
+type resilientToolInput struct {
+	Command  string `json:"command"`
+	CmdUpper string `json:"Cmd"`
+	CmdLower string `json:"cmd"`
+}
+
 // RunHook reads a Claude Code PreToolUse hook payload from stdin,
 // checks if the command should be wrapped with chop, and outputs
 // modified JSON on stdout. Always exits 0.
