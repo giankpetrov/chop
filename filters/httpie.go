@@ -8,7 +8,7 @@ import (
 // filterHttpie filters httpie (http command) output.
 // httpie format: colored headers followed by blank line and body.
 func filterHttpie(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
+	raw = redactHeaders(strings.TrimSpace(raw))
 	if raw == "" {
 		return "", nil
 	}
@@ -73,9 +73,9 @@ func filterHttpie(raw string) (string, error) {
 
 	if statusLine != "" {
 		result := statusLine + "\n" + trimmedBody
-		return outputSanityCheck(raw, result), nil
+		return redactAwareSanityCheck(raw, result), nil
 	}
-	return outputSanityCheck(raw, trimmedBody), nil
+	return redactAwareSanityCheck(raw, trimmedBody), nil
 }
 
 // isHttpieError detects httpie error messages.

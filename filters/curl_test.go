@@ -163,3 +163,33 @@ func TestFilterCurlHeadersWithLFOnly(t *testing.T) {
 		t.Errorf("expected body preserved, got:\n%s", got)
 	}
 }
+
+func TestFilterCurlRedactsSensitiveHeaders(t *testing.T) {
+	raw := "> GET /api/v1/user HTTP/1.1\n" +
+		"> Host: api.example.com\n" +
+		"> Authorization: Bearer secret-token-123\n" +
+		"> Cookie: session_id=abc123xyz789\n" +
+		">\n" +
+		"HTTP/1.1 200 OK\n" +
+		"Content-Type: application/json\n" +
+		"\n" +
+		`{"users":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"},{"id":3,"name":"Carol"},{"id":4,"name":"Dave"},{"id":5,"name":"Eve"},{"id":6,"name":"Frank"}],"total":150}`
+
+	got, err := filterCurl(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Currently, this should FAIL once we implement redaction,
+	// but for now, it should pass as "Authorization" is not redacted.
+	// Actually, I'll write it as it SHOULD be, so it fails now.
+	if strings.Contains(got, "secret-token-123") {
+		t.Errorf("found sensitive token in output:\n%s", got)
+	}
+	if strings.Contains(got, "abc123xyz789") {
+		t.Errorf("found sensitive cookie in output:\n%s", got)
+	}
+	if !strings.Contains(got, "[REDACTED]") {
+		t.Errorf("expected [REDACTED] in output:\n%s", got)
+	}
+}
