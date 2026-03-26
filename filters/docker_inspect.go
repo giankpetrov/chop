@@ -10,14 +10,25 @@ func filterDockerInspect(raw string) (string, error) {
 	if trimmed == "" {
 		return "", nil
 	}
-	if len(trimmed) < 500 {
-		return raw, nil
-	}
-	// Always deep-compress docker inspect output (skip isSmallJSON path)
+
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
 		return raw, nil
 	}
+
+	// Always redact sensitive data even in small inspect output
+	parsed = redactJSON(parsed)
+
+	// If large enough, summarize structure. If small, preserve redacted values.
+	if len(trimmed) < 500 && isSmallJSON(parsed) {
+		b, err := json.MarshalIndent(parsed, "", "  ")
+		if err != nil {
+			return raw, nil
+		}
+		return string(b), nil
+	}
+
+	// Always deep-compress large docker inspect output
 	result := compressJSONValue(parsed, 0)
 	return outputSanityCheck(raw, result), nil
 }
