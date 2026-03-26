@@ -45,6 +45,26 @@ func TestFilterHttpieError(t *testing.T) {
 	}
 }
 
+func TestFilterHttpieRedactsSensitiveHeaders(t *testing.T) {
+	raw := "HTTP/1.1 200 OK\n" +
+		"Authorization: Basic dXNlcjpwYXNzd29yZA==\n" +
+		"X-Api-Key: top-secret-key\n" +
+		"\n" +
+		`{"users":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"},{"id":3,"name":"Carol"},{"id":4,"name":"Dave"},{"id":5,"name":"Eve"},{"id":6,"name":"Frank"}],"total":150}`
+
+	got, err := filterHttpie(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(got, "dXNlcjpwYXNzd29yZA==") {
+		t.Errorf("found sensitive token in output:\n%s", got)
+	}
+	if strings.Contains(got, "top-secret-key") {
+		t.Errorf("found sensitive api key in output:\n%s", got)
+	}
+}
+
 func TestFilterHttpieHTMLResponse(t *testing.T) {
 	raw := "HTTP/1.1 404 Not Found\nContent-Type: text/html\n\n<!DOCTYPE html><html><body><h1>Not Found</h1></body></html>"
 

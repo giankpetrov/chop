@@ -2,14 +2,22 @@ package filters
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
+var sensitiveHeadersRe = regexp.MustCompile(`(?mi)^([<>* ]*)(authorization|cookie|set-cookie|x-auth-token|x-api-key|proxy-authorization):.*$`)
+
+// redactHeaders masks sensitive HTTP headers (e.g., Authorization, Cookie) in curl/httpie output.
+func redactHeaders(s string) string {
+	return sensitiveHeadersRe.ReplaceAllString(s, "${1}${2}: [REDACTED]")
+}
+
 // filterCurl filters curl command output, compressing JSON responses
 // and summarizing HTML/binary content.
 func filterCurl(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
+	raw = redactHeaders(strings.TrimSpace(raw))
 	if raw == "" {
 		return "", nil
 	}
@@ -71,9 +79,19 @@ func filterCurl(raw string) (string, error) {
 
 	if statusLine != "" {
 		result := statusLine + "\n" + trimmedBody
-		return outputSanityCheck(raw, result), nil
+		return redactAwareSanityCheck(raw, result), nil
 	}
-	return outputSanityCheck(raw, trimmedBody), nil
+	return redactAwareSanityCheck(raw, trimmedBody), nil
+}
+
+// redactAwareSanityCheck is a wrapper around outputSanityCheck that always
+// prefers the result if it contains [REDACTED], ensuring security is prioritized
+// over length-based heuristics.
+func redactAwareSanityCheck(raw, result string) string {
+	if strings.Contains(raw, "[REDACTED]") {
+		return result
+	}
+	return outputSanityCheck(raw, result)
 }
 
 // isCurlError detects curl error messages.
