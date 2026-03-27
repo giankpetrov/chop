@@ -20,6 +20,9 @@ func compressJSON(raw string) (string, error) {
 		return "", fmt.Errorf("invalid JSON: %w", err)
 	}
 
+	// Redact sensitive data before compression/summarization
+	parsed = redactJSON(parsed)
+
 	// For small JSON (< 5 keys at top level, no large arrays), preserve values
 	if isSmallJSON(parsed) {
 		// Re-marshal with indent for readability but keep it compact
