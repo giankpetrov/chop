@@ -32,6 +32,11 @@ func TestRedactHeaders(t *testing.T) {
 			"> Host: example.com\n> api-key: 12345\n> User-Agent: curl",
 			"> Host: example.com\n> api-key: [REDACTED]\n> User-Agent: curl",
 		},
+		{
+			"case-insensitive headers",
+			"> AUTHORIZATION: Bearer caps-token\n> Authorization: Bearer mixed-token",
+			"> AUTHORIZATION: [REDACTED]\n> Authorization: [REDACTED]",
+		},
 	}
 
 	for _, tt := range tests {
@@ -82,6 +87,45 @@ func TestRedactJSON(t *testing.T) {
 	}
 	if !strings.Contains(s, "[REDACTED]") {
 		t.Error("Redaction marker [REDACTED] missing")
+	}
+}
+
+func TestRedactJSONRecursiveArray(t *testing.T) {
+	rawJSON := `[
+		{"id": 1, "token": "t1"},
+		{"id": 2, "token": "t2"}
+	]`
+
+	var parsed interface{}
+	json.Unmarshal([]byte(rawJSON), &parsed)
+
+	redacted := redactJSON(parsed)
+	redactedJSON, _ := json.Marshal(redacted)
+	s := string(redactedJSON)
+
+	if strings.Contains(s, "t1") || strings.Contains(s, "t2") {
+		t.Error("token not redacted in array of objects")
+	}
+	if !strings.Contains(s, "[REDACTED]") {
+		t.Error("Redaction marker missing in array redaction")
+	}
+}
+
+func TestSmallJSONRedaction(t *testing.T) {
+	// Small JSON that would be preserved by isSmallJSON
+	raw := `{"status":"ok","api_key":"sk-123"}`
+
+	// Using compressJSON which uses redactJSON internally
+	got, err := compressJSON(raw)
+	if err != nil {
+		t.Fatalf("compressJSON failed: %v", err)
+	}
+
+	if strings.Contains(got, "sk-123") {
+		t.Errorf("Small JSON secret leaked: %s", got)
+	}
+	if !strings.Contains(got, "[REDACTED]") {
+		t.Errorf("Small JSON secret not redacted: %s", got)
 	}
 }
 
