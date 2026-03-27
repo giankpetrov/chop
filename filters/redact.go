@@ -13,6 +13,7 @@ var sensitiveKeywords = []string{
 	"x-auth-token",
 	"x-api-key",
 	"api-key",
+	"api_key",
 	"proxy-authorization",
 	"password",
 	"secret",
@@ -36,6 +37,9 @@ func redactHeaders(s string) string {
 
 // redactJSON recursively redacts sensitive keys in parsed JSON data.
 func redactJSON(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
 	switch val := v.(type) {
 	case map[string]interface{}:
 		newMap := make(map[string]interface{})
@@ -44,7 +48,7 @@ func redactJSON(v interface{}) interface{} {
 				newMap[k] = "[REDACTED]"
 			} else {
 				// Special handling for common environment variable lists (e.g., Docker inspect)
-				if (strings.EqualFold(k, "env") || strings.EqualFold(k, "environment")) {
+				if strings.EqualFold(k, "env") || strings.EqualFold(k, "environment") {
 					newMap[k] = redactEnvList(v)
 				} else {
 					newMap[k] = redactJSON(v)
