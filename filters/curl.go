@@ -2,17 +2,9 @@ package filters
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 )
-
-var sensitiveHeadersRe = regexp.MustCompile(`(?mi)^([<>* ]*)(authorization|cookie|set-cookie|x-auth-token|x-api-key|proxy-authorization):.*$`)
-
-// redactHeaders masks sensitive HTTP headers (e.g., Authorization, Cookie) in curl/httpie output.
-func redactHeaders(s string) string {
-	return sensitiveHeadersRe.ReplaceAllString(s, "${1}${2}: [REDACTED]")
-}
 
 // filterCurl filters curl command output, compressing JSON responses
 // and summarizing HTML/binary content.
