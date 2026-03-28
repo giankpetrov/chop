@@ -45,11 +45,13 @@ func TestFilterCurlHTMLResponse(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.HasPrefix(got, "HTML response (") {
-		t.Errorf("expected 'HTML response (N bytes)', got:\n%s", got)
+	// Should extract text content from HTML, not raw tags
+	if strings.Contains(got, "<html>") || strings.Contains(got, "<body>") {
+		t.Errorf("expected HTML tags stripped, got:\n%s", got)
 	}
-	if !strings.Contains(got, "bytes)") {
-		t.Errorf("expected byte count, got:\n%s", got)
+	// Should contain meaningful text
+	if !strings.Contains(got, "Not Found") {
+		t.Errorf("expected text content preserved, got:\n%s", got)
 	}
 }
 

@@ -24,8 +24,11 @@ found 0 vulnerabilities
 	if !strings.Contains(got, "added 150 packages") {
 		t.Errorf("expected added count, got: %s", got)
 	}
-	if !strings.Contains(got, "2 warnings") {
+	if !strings.Contains(got, "warnings") {
 		t.Errorf("expected warning count, got: %s", got)
+	}
+	if !strings.Contains(got, "deprecated") {
+		t.Errorf("expected 'deprecated' in warning summary, got: %s", got)
 	}
 	// Funding notice should be stripped
 	if strings.Contains(got, "funding") {

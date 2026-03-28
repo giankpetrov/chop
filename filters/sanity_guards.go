@@ -584,6 +584,51 @@ func looksLikeSystemctlStatus(s string) bool {
 		strings.Contains(s, "Status: \"")
 }
 
+func looksLikeBrewOutput(s string) bool {
+	return strings.Contains(s, "==>") ||
+		strings.Contains(s, "Homebrew") ||
+		strings.Contains(s, "Cellar") ||
+		strings.Contains(s, "brew")
+}
+
+func looksLikeAptOutput(s string) bool {
+	return strings.Contains(s, "apt") ||
+		strings.Contains(s, "dpkg") ||
+		strings.Contains(s, "Get:") ||
+		strings.Contains(s, "Setting up") ||
+		strings.Contains(s, "Reading package lists") ||
+		strings.Contains(s, "Building dependency tree")
+}
+
+func looksLikeDockerPullOutput(s string) bool {
+	return strings.Contains(s, "Pulling from") ||
+		strings.Contains(s, "Pull complete") ||
+		strings.Contains(s, "Status: Downloaded") ||
+		strings.Contains(s, "Status: Image is up to date") ||
+		strings.Contains(s, "Digest: sha256:")
+}
+
+func looksLikeGitCloneOutput(s string) bool {
+	return strings.Contains(s, "Cloning into") ||
+		strings.Contains(s, "remote: Enumerating") ||
+		strings.Contains(s, "remote: Total") ||
+		strings.Contains(s, "Receiving objects:")
+}
+
+func looksLikeJournalctlOutput(s string) bool {
+	return strings.Contains(s, "systemd") ||
+		strings.Contains(s, "-- Boot ") ||
+		strings.Contains(s, "-- Logs begin") ||
+		strings.Contains(s, "-- No entries --")
+}
+
+func looksLikeSshOutput(s string) bool {
+	return strings.Contains(s, "Permanently added") ||
+		strings.Contains(s, "authenticity of host") ||
+		strings.Contains(s, "key fingerprint") ||
+		strings.Contains(s, "Last login:")
+}
+
 // isHexPrefix checks if string starts with what looks like a hex hash (git oneline format)
 func isHexPrefix(s string) bool {
 	if len(s) < 7 {
