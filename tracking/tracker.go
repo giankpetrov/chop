@@ -102,11 +102,19 @@ func Init() error {
 			dbErr = err
 			return
 		}
+		// Pre-create the DB file with secure permissions before SQLite opens it,
+		// eliminating the TOCTOU window between file creation and chmod.
+		if f, err := os.OpenFile(path, os.O_CREATE, 0o600); err == nil {
+			f.Close()
+		}
 		db, dbErr = sql.Open("sqlite", path)
 		if dbErr != nil {
 			return
 		}
-		_ = os.Chmod(path, 0o600)
+		if err := os.Chmod(path, 0o600); err != nil {
+			dbErr = err
+			return
+		}
 		db.SetMaxOpenConns(1)
 		_, dbErr = db.Exec("PRAGMA journal_mode=WAL")
 		if dbErr != nil {

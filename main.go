@@ -366,6 +366,12 @@ func runCapture(args []string) {
 	if len(cmdArgs) > 0 {
 		subcommand = cmdArgs[0]
 	}
+
+	// Reject path separators in command/subcommand to prevent path traversal in fixture filenames.
+	if strings.ContainsAny(command, "/\\") || strings.ContainsAny(subcommand, "/\\") {
+		fmt.Fprintln(os.Stderr, "chop: capture: command name must not contain path separators")
+		os.Exit(1)
+	}
 	ts := time.Now().Format("20060102-150405")
 	var baseName string
 	safeCommand := sanitizeFilename(command)

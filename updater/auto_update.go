@@ -100,6 +100,19 @@ func ApplyPendingUpdate(currentVersion string) {
 	tmpBinary := parts[1]
 	expectedHash := parts[2]
 
+	// Validate the binary path is inside our data directory to prevent path traversal.
+	safeDir, err := dataDir()
+	if err != nil {
+		os.Remove(pending)
+		return
+	}
+	cleanBinary := filepath.Clean(tmpBinary)
+	if !strings.HasPrefix(cleanBinary, safeDir+string(filepath.Separator)) {
+		os.Remove(pending)
+		return
+	}
+	tmpBinary = cleanBinary
+
 	// Verify the temp binary still exists and matches the stored hash.
 	// Re-hashing at apply time closes the TOCTOU window between download and install.
 	info, err := os.Stat(tmpBinary)
@@ -179,12 +192,12 @@ func RunBackgroundUpdate(currentVersion string) {
 		return
 	}
 
-	exe, err := os.Executable()
+	dir, err := dataDir()
 	if err != nil {
 		return
 	}
 
-	tmpPath := exe + ".new"
+	tmpPath := filepath.Join(dir, "pending.bin")
 	binaryName := buildBinaryName()
 	url := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", repo, latest, binaryName)
 
