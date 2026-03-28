@@ -65,6 +65,11 @@ func parseCustomFiltersWithTrust(data []byte, trusted bool) map[string]CustomFil
 		return nil
 	}
 	for k, v := range cfg.Filters {
+		// Security: strictly enforce the Trusted flag by completely rejecting exec
+		// directives from local .chop-filters.yml files
+		if !trusted && v.Exec != "" {
+			v.Exec = ""
+		}
 		v.Trusted = trusted
 		cfg.Filters[k] = v
 	}
