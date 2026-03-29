@@ -40,12 +40,11 @@ func filterCurl(raw string) (string, error) {
 
 	// HTML response
 	if isHTML(trimmedBody) {
-		size := len(trimmedBody)
-		summary := fmt.Sprintf("HTML response (%d bytes)", size)
+		text := stripHTMLTags(trimmedBody)
 		if statusLine != "" {
-			return statusLine + "\n" + summary, nil
+			return statusLine + "\n" + text, nil
 		}
-		return summary, nil
+		return text, nil
 	}
 
 	// Binary detection
@@ -185,4 +184,35 @@ func isBinary(s string) bool {
 	}
 	// If >10% non-printable, treat as binary
 	return total > 0 && float64(nonPrintable)/float64(total) > 0.1
+}
+
+// stripHTMLTags removes all HTML tags from a string, collapses whitespace,
+// and truncates to 500 chars with a note if needed.
+func stripHTMLTags(s string) string {
+	var b strings.Builder
+	inTag := false
+	for _, c := range s {
+		if c == '<' {
+			inTag = true
+			b.WriteRune(' ')
+			continue
+		}
+		if c == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			b.WriteRune(c)
+		}
+	}
+
+	// Collapse whitespace
+	text := b.String()
+	words := strings.Fields(text)
+	collapsed := strings.Join(words, " ")
+
+	if len(collapsed) > 500 {
+		return collapsed[:500] + "... (HTML truncated)"
+	}
+	return collapsed
 }

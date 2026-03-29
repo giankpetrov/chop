@@ -108,9 +108,35 @@ func filterNpmInstall(raw string) (string, error) {
 		fmt.Fprintf(&out, "\n%s", e)
 	}
 
-	// Condense warnings to a count
+	// Condense warnings to a grouped count by type
 	if len(warnings) > 0 {
-		fmt.Fprintf(&out, "\n%d warnings", len(warnings))
+		var deprecated, engineIncompat, other int
+		for _, w := range warnings {
+			lower := strings.ToLower(w)
+			if strings.Contains(lower, "deprecated") {
+				deprecated++
+			} else if strings.Contains(lower, "ebadengine") || strings.Contains(lower, "engine") {
+				engineIncompat++
+			} else {
+				other++
+			}
+		}
+		// Build summary
+		var parts []string
+		if deprecated > 0 {
+			parts = append(parts, fmt.Sprintf("%d deprecated", deprecated))
+		}
+		if engineIncompat > 0 {
+			parts = append(parts, fmt.Sprintf("%d engine incompatibility", engineIncompat))
+		}
+		if other > 0 {
+			parts = append(parts, fmt.Sprintf("%d other", other))
+		}
+		if len(parts) == 1 {
+			fmt.Fprintf(&out, "\n%s warnings", parts[0])
+		} else {
+			fmt.Fprintf(&out, "\n%s warnings", strings.Join(parts, ", "))
+		}
 	}
 
 	result := strings.TrimSpace(out.String())

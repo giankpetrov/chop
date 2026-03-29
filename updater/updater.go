@@ -138,7 +138,7 @@ func download(url, destPath string) error {
 		return fmt.Errorf("failed to write binary: %w", err)
 	}
 
-	// Verify it's not a 404 HTML page
+	// Verify it's not a 404 HTML page or otherwise invalid binary
 	info, err := os.Stat(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to verify downloaded file: %w", err)
@@ -146,7 +146,46 @@ func download(url, destPath string) error {
 	if info.Size() < 1024 {
 		return fmt.Errorf("downloaded file too small (%d bytes), release may not exist", info.Size())
 	}
+	if err := checkBinaryMagic(destPath); err != nil {
+		return err
+	}
 
+	return nil
+}
+
+// checkBinaryMagic verifies the file at path starts with the expected magic bytes
+// for the current platform (ELF on Linux, Mach-O on macOS, PE on Windows).
+func checkBinaryMagic(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open binary for validation: %w", err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, 4)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		return fmt.Errorf("binary too small to read magic bytes: %w", err)
+	}
+
+	switch runtime.GOOS {
+	case "linux":
+		if buf[0] != 0x7f || buf[1] != 'E' || buf[2] != 'L' || buf[3] != 'F' {
+			return fmt.Errorf("downloaded file is not a valid ELF binary")
+		}
+	case "darwin":
+		valid := (buf[0] == 0xca && buf[1] == 0xfe && buf[2] == 0xba && buf[3] == 0xbe) || // fat binary
+			(buf[0] == 0xcf && buf[1] == 0xfa && buf[2] == 0xed && buf[3] == 0xfe) || // 64-bit LE
+			(buf[0] == 0xce && buf[1] == 0xfa && buf[2] == 0xed && buf[3] == 0xfe) || // 32-bit LE
+			(buf[0] == 0xfe && buf[1] == 0xed && buf[2] == 0xfa && buf[3] == 0xcf) || // 64-bit BE
+			(buf[0] == 0xfe && buf[1] == 0xed && buf[2] == 0xfa && buf[3] == 0xce) // 32-bit BE
+		if !valid {
+			return fmt.Errorf("downloaded file is not a valid Mach-O binary")
+		}
+	case "windows":
+		if buf[0] != 'M' || buf[1] != 'Z' {
+			return fmt.Errorf("downloaded file is not a valid PE binary")
+		}
+	}
 	return nil
 }
 
@@ -216,6 +255,9 @@ func fetchReleaseFile(version, filename string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("%s not found (404)", filename)
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("%s returned %d", filename, resp.StatusCode)
 	}

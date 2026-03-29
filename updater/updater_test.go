@@ -94,11 +94,11 @@ func TestLatestVersion_NonOKStatus(t *testing.T) {
 }
 
 func TestDownload_Success(t *testing.T) {
-	// Serve a fake binary large enough to pass the size check (>1024 bytes).
-	payload := strings.Repeat("x", 2048)
+	// Serve a fake binary with valid magic bytes for the current platform, large enough to pass size check.
+	payload := fakeBinaryPayload()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(payload))
+		w.Write(payload)
 	}))
 	defer srv.Close()
 
@@ -111,9 +111,24 @@ func TestDownload_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not read dest file: %v", err)
 	}
-	if string(data) != payload {
+	if string(data) != string(payload) {
 		t.Error("downloaded content does not match expected payload")
 	}
+}
+
+// fakeBinaryPayload returns a 2048-byte buffer with valid magic bytes for the current platform.
+func fakeBinaryPayload() []byte {
+	buf := make([]byte, 2048)
+	switch runtime.GOOS {
+	case "linux":
+		copy(buf, []byte{0x7f, 'E', 'L', 'F'})
+	case "darwin":
+		// 64-bit little-endian Mach-O
+		copy(buf, []byte{0xcf, 0xfa, 0xed, 0xfe})
+	case "windows":
+		copy(buf, []byte{'M', 'Z'})
+	}
+	return buf
 }
 
 func TestDownload_404(t *testing.T) {

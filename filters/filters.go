@@ -95,6 +95,8 @@ func getDockerFilter(args []string) FilterFunc {
 			return filterDockerSystemDf
 		}
 		return nil
+	case "pull":
+		return filterDockerPull
 	case "compose":
 		return getDockerComposeFilter(args[1:])
 	default:
@@ -189,6 +191,8 @@ func getGitFilter(args []string) FilterFunc {
 		return filterGitPull
 	case "fetch":
 		return filterGitFetch
+	case "clone":
+		return filterGitClone
 	case "remote", "tag", "checkout", "reset":
 		return filterAutoDetect
 	case "stash":
@@ -260,6 +264,11 @@ func getKubectlFilter(args []string) FilterFunc {
 		return filterKubectlApply
 	case "delete":
 		return filterKubectlDelete
+	case "rollout":
+		if len(args) > 1 && args[1] == "status" {
+			return filterKubectlRolloutStatus
+		}
+		return filterAutoDetect
 	default:
 		return nil
 	}

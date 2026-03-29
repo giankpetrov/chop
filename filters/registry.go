@@ -56,17 +56,17 @@ func registerHidden(filter FilterFunc, commands ...string) {
 
 func init() {
 	// --- Routers (commands with subcommand dispatch) ---
-	registerRouter(getGitFilter, []string{"status", "log", "diff", "show", "branch", "push", "pull", "fetch"}, "git")
+	registerRouter(getGitFilter, []string{"status", "log", "diff", "show", "branch", "push", "pull", "fetch", "clone"}, "git")
 	registerRouter(getNpmFilter, []string{"install", "list", "test"}, "npm")
 	registerRouter(getNpxFilter, nil, "npx")
 	registerRouter(getPnpmFilter, []string{"install", "list"}, "pnpm")
 	registerRouter(getYarnFilter, []string{"install"}, "yarn")
 	registerRouter(getBunFilter, []string{"install"}, "bun")
-	registerRouter(getDockerFilter, []string{"build", "ps", "logs"}, "docker")
+	registerRouter(getDockerFilter, []string{"build", "ps", "logs", "pull"}, "docker")
 	registerAlias("docker", "podman")
 	registerRouter(getDockerComposeFilter, nil, "docker-compose")
 	registerRouter(getDotnetFilter, []string{"build", "test"}, "dotnet")
-	registerRouter(getKubectlFilter, []string{"get", "describe", "logs"}, "kubectl")
+	registerRouter(getKubectlFilter, []string{"get", "describe", "logs", "rollout"}, "kubectl")
 	registerRouter(getHelmFilter, []string{"install", "list"}, "helm")
 	registerRouter(getTerraformFilter, []string{"plan", "apply", "init"}, "terraform")
 	registerAlias("terraform", "tofu")
@@ -83,6 +83,11 @@ func init() {
 	registerRouter(getComposerFilter, []string{"install"}, "composer")
 	registerRouter(getAcliFilter, nil, "acli")
 	registerRouter(getSystemctlFilter, []string{"status", "list-units"}, "systemctl")
+	registerRouter(getBrewFilter, []string{"install", "upgrade", "update"}, "brew")
+	registerRouter(getAptFilter, []string{"install", "upgrade", "update"}, "apt")
+	registerAlias("apt", "apt-get")
+	registerFilter(filterSsh, nil, "ssh")
+	registerFilter(filterJournalctl, nil, "journalctl")
 
 	// Routers with aliases (primary name visible, alternatives hidden)
 	registerRouter(getGradleFilter, nil, "gradle")

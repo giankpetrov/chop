@@ -15,6 +15,26 @@ func AutoDetect(raw string) (string, error) {
 	return filterAutoDetect(raw)
 }
 
+// looksLikeJSONLines returns true if >60% of non-empty lines start with '{' and end with '}'.
+func looksLikeJSONLines(lines []string) bool {
+	nonEmpty := 0
+	jsonLike := 0
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			continue
+		}
+		nonEmpty++
+		if strings.HasPrefix(t, "{") && strings.HasSuffix(t, "}") {
+			jsonLike++
+		}
+	}
+	if nonEmpty == 0 {
+		return false
+	}
+	return float64(jsonLike)/float64(nonEmpty) > 0.6
+}
+
 func filterAutoDetect(raw string) (string, error) {
 	if raw == "" {
 		return "", nil
@@ -25,6 +45,17 @@ func filterAutoDetect(raw string) (string, error) {
 
 	// Don't compress short output
 	if len(lines) < 20 && len(trimmed) < 500 {
+		return raw, nil
+	}
+
+	// JSON lines detection (newline-delimited JSON / structured logs)
+	if looksLikeJSONLines(lines) {
+		if len(lines) > 10 {
+			hidden := len(lines) - 5
+			first5 := strings.Join(lines[:5], "\n")
+			result := first5 + fmt.Sprintf("\n... %d more JSON log entries", hidden)
+			return outputSanityCheck(raw, result), nil
+		}
 		return raw, nil
 	}
 

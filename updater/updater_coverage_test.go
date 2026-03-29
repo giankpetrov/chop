@@ -131,10 +131,10 @@ func TestFetchReleaseFile_Success(t *testing.T) {
 	// download helper that shares the same httpClient.
 	dest := filepath.Join(t.TempDir(), "out")
 	// Serve content large enough to pass the size check
-	payload := strings.Repeat("z", 2048)
+	payload := fakeBinaryPayload()
 	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(payload))
+		w.Write(payload)
 	}))
 	defer srv2.Close()
 
@@ -145,7 +145,7 @@ func TestFetchReleaseFile_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if string(got) != payload {
+	if string(got) != string(payload) {
 		t.Error("downloaded content does not match payload")
 	}
 }
