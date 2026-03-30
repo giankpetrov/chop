@@ -91,7 +91,7 @@ func latestVersion() (string, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
 	resp, err := httpClient.Get(url)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not reach GitHub (check your internet connection or firewall): %w", err)
 	}
 	defer resp.Body.Close()
 
