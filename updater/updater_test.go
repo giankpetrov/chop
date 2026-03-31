@@ -32,6 +32,28 @@ func TestIsDev(t *testing.T) {
 	}
 }
 
+func TestIsNewer(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want bool
+	}{
+		{"v1.32.1", "v1.30.0", true},
+		{"v1.30.2", "v1.30.0", true},
+		{"v2.0.0", "v1.99.99", true},
+		{"v1.30.0", "v1.30.0", false},
+		{"v1.29.0", "v1.30.0", false},
+		{"v1.30.0", "v1.30.2", false},
+		{"v1.30.2", "v1.32.1", false}, // the stale-cache scenario
+		{"bad", "v1.0.0", false},
+		{"v1.0.0", "bad", false},
+	}
+	for _, c := range cases {
+		if got := isNewer(c.a, c.b); got != c.want {
+			t.Errorf("isNewer(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+		}
+	}
+}
+
 func TestBuildBinaryName(t *testing.T) {
 	name := buildBinaryName()
 	if !strings.HasPrefix(name, "chop-") {

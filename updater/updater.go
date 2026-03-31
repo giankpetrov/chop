@@ -194,6 +194,44 @@ func IsDev(version string) bool {
 	return version == "dev" || strings.Contains(version, "-dirty")
 }
 
+// isNewer reports whether version a is strictly newer than version b.
+// Expects semver tags in the form "vX.Y.Z". Returns false for malformed input.
+func isNewer(a, b string) bool {
+	pa, ok1 := parseSemver(a)
+	pb, ok2 := parseSemver(b)
+	if !ok1 || !ok2 {
+		return false
+	}
+	if pa[0] != pb[0] {
+		return pa[0] > pb[0]
+	}
+	if pa[1] != pb[1] {
+		return pa[1] > pb[1]
+	}
+	return pa[2] > pb[2]
+}
+
+// parseSemver parses a "vX.Y.Z" tag into [major, minor, patch].
+func parseSemver(v string) ([3]int, bool) {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) != 3 {
+		return [3]int{}, false
+	}
+	var nums [3]int
+	for i, p := range parts {
+		n := 0
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return [3]int{}, false
+			}
+			n = n*10 + int(c-'0')
+		}
+		nums[i] = n
+	}
+	return nums, true
+}
+
 // verifyChecksum fetches checksums.txt and checksums.txt.sig from the release,
 // verifies the signature of checksums.txt using the embedded public key,
 // and then verifies the SHA256 hash of the binary.

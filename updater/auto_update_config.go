@@ -68,7 +68,7 @@ func NotifyIfUpdateAvailable(currentVersion string) {
 		return
 	}
 	latest := strings.TrimSpace(string(data))
-	if latest == "" || latest == currentVersion {
+	if latest == "" || latest == currentVersion || !isNewer(latest, currentVersion) {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "chop: update available %s -> %s (run 'chop update')\n", currentVersion, latest)

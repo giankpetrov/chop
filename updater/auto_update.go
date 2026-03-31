@@ -179,7 +179,7 @@ func BackgroundCheck(currentVersion string) {
 // Called by the subprocess spawned from BackgroundCheck — runs after parent exits.
 func RunBackgroundUpdate(currentVersion string) {
 	latest, err := latestVersion()
-	if err != nil || latest == currentVersion {
+	if err != nil || !isNewer(latest, currentVersion) {
 		clearUpdateAvailable()
 		return
 	}
