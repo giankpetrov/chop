@@ -240,6 +240,8 @@ func TestPath_Default(t *testing.T) {
 }
 
 func TestPath_XDG(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	old := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
 	defer os.Setenv("XDG_CONFIG_HOME", old)

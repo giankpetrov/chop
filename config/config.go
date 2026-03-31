@@ -5,12 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // Config holds user preferences loaded from ~/.config/chop/config.yml.
 type Config struct {
 	Disabled []string
 }
+
+var (
+	globalCfgOnce sync.Once
+	globalCfg     Config
+)
 
 // Path returns the config file path.
 func Path() string {
@@ -19,8 +25,12 @@ func Path() string {
 
 // Load reads the config file and returns a Config.
 // Returns defaults if the file doesn't exist or can't be parsed.
+// Result is cached for the lifetime of the process.
 func Load() Config {
-	return LoadFrom(Path())
+	globalCfgOnce.Do(func() {
+		globalCfg = LoadFrom(Path())
+	})
+	return globalCfg
 }
 
 // LoadFrom reads config from a specific path. Exported for testing.

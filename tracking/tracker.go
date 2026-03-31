@@ -79,6 +79,9 @@ var (
 	db     *sql.DB
 	dbOnce sync.Once
 	dbErr  error
+
+	gitRootOnce sync.Once
+	gitRootVal  string
 )
 
 func dbPath() string {
@@ -115,7 +118,7 @@ func Init() error {
 			dbErr = err
 			return
 		}
-		db.SetMaxOpenConns(1)
+		db.SetMaxOpenConns(4)
 		_, dbErr = db.Exec("PRAGMA journal_mode=WAL")
 		if dbErr != nil {
 			return
@@ -155,6 +158,10 @@ func Init() error {
 			command TEXT PRIMARY KEY,
 			added_at TEXT NOT NULL
 		)`)
+		if dbErr != nil {
+			return
+		}
+		_, dbErr = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tracking_timestamp ON tracking (timestamp)`)
 	})
 	return dbErr
 }
@@ -164,6 +171,8 @@ func initForTest() {
 	dbOnce = sync.Once{}
 	db = nil
 	dbErr = nil
+	gitRootOnce = sync.Once{}
+	gitRootVal = ""
 }
 
 // Track records a command's token savings. Silent on error.
@@ -195,60 +204,68 @@ func GetStats() (Stats, error) {
 	if err := Init(); err != nil {
 		return Stats{}, err
 	}
-	var s Stats
 
-	row := db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking`)
-	if err := row.Scan(&s.TotalCommands, &s.TotalRawTokens, &s.TotalSavedTokens); err != nil {
-		return Stats{}, err
-	}
-	if s.TotalRawTokens > 0 {
-		s.OverallSavingsPct = float64(s.TotalSavedTokens) / float64(s.TotalRawTokens) * 100.0
-	}
-
-	today := time.Now().Local().Format("2006-01-02")
-	row = db.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ? || '%' ESCAPE '\'`,
-		escapeLike(today),
-	)
-	if err := row.Scan(&s.TodayCommands, &s.TodayRawTokens, &s.TodaySavedTokens); err != nil {
-		return Stats{}, err
-	}
-
-	// Calendar week: Monday 00:00 through now
 	now := time.Now().Local()
+	today := now.Format("2006-01-02")
 	weekday := now.Weekday()
 	if weekday == time.Sunday {
 		weekday = 7
 	}
 	weekStart := time.Date(now.Year(), now.Month(), now.Day()-int(weekday-time.Monday), 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
-	row = db.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
-		weekStart,
-	)
-	if err := row.Scan(&s.WeekCommands, &s.WeekRawTokens, &s.WeekSavedTokens); err != nil {
-		return Stats{}, err
-	}
-
-	// Calendar month: 1st of current month through now
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
-	row = db.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
-		monthStart,
-	)
-	if err := row.Scan(&s.MonthCommands, &s.MonthRawTokens, &s.MonthSavedTokens); err != nil {
-		return Stats{}, err
-	}
-
-	// Calendar year: Jan 1 of current year through now
 	yearStart := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02 00:00:00")
-	row = db.QueryRow(
-		`SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`,
-		yearStart,
-	)
-	if err := row.Scan(&s.YearCommands, &s.YearRawTokens, &s.YearSavedTokens); err != nil {
-		return Stats{}, err
+
+	type bucket struct {
+		cmds, raw, saved int
+		err              error
+	}
+	results := make([]bucket, 5)
+
+	type query struct {
+		idx   int
+		sql   string
+		arg   any
+	}
+	queries := []query{
+		{0, `SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking`, nil},
+		{1, `SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp LIKE ? || '%' ESCAPE '\'`, escapeLike(today)},
+		{2, `SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`, weekStart},
+		{3, `SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`, monthStart},
+		{4, `SELECT COUNT(*), COALESCE(SUM(raw_tokens),0), COALESCE(SUM(raw_tokens - filtered_tokens),0) FROM tracking WHERE timestamp >= ?`, yearStart},
 	}
 
+	var wg sync.WaitGroup
+	for _, q := range queries {
+		wg.Add(1)
+		go func(q query) {
+			defer wg.Done()
+			var row *sql.Row
+			if q.arg == nil {
+				row = db.QueryRow(q.sql)
+			} else {
+				row = db.QueryRow(q.sql, q.arg)
+			}
+			results[q.idx].err = row.Scan(&results[q.idx].cmds, &results[q.idx].raw, &results[q.idx].saved)
+		}(q)
+	}
+	wg.Wait()
+
+	for _, r := range results {
+		if r.err != nil {
+			return Stats{}, r.err
+		}
+	}
+
+	s := Stats{
+		TotalCommands: results[0].cmds, TotalRawTokens: results[0].raw, TotalSavedTokens: results[0].saved,
+		TodayCommands: results[1].cmds, TodayRawTokens: results[1].raw, TodaySavedTokens: results[1].saved,
+		WeekCommands:  results[2].cmds, WeekRawTokens:  results[2].raw, WeekSavedTokens:  results[2].saved,
+		MonthCommands: results[3].cmds, MonthRawTokens: results[3].raw, MonthSavedTokens: results[3].saved,
+		YearCommands:  results[4].cmds, YearRawTokens:  results[4].raw, YearSavedTokens:  results[4].saved,
+	}
+	if s.TotalRawTokens > 0 {
+		s.OverallSavingsPct = float64(s.TotalSavedTokens) / float64(s.TotalRawTokens) * 100.0
+	}
 	return s, nil
 }
 
@@ -687,14 +704,18 @@ func formatNum(n int) string {
 
 // gitRoot returns the git repository root for the current working directory,
 // or the working directory itself if not in a git repo.
+// Result is cached for the lifetime of the process.
 func gitRoot() string {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	out, err := cmd.Output()
-	if err != nil {
-		cwd, _ := os.Getwd()
-		return cwd
-	}
-	return strings.TrimSpace(string(out))
+	gitRootOnce.Do(func() {
+		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		out, err := cmd.Output()
+		if err != nil {
+			gitRootVal, _ = os.Getwd()
+			return
+		}
+		gitRootVal = strings.TrimSpace(string(out))
+	})
+	return gitRootVal
 }
 
 // GetProjectSummary returns per-project aggregate stats, sorted by tokens saved descending.

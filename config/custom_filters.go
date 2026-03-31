@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,6 +26,11 @@ type CustomFiltersConfig struct {
 	Filters map[string]CustomFilter `yaml:"filters"`
 }
 
+var (
+	globalFiltersOnce sync.Once
+	globalFilters     map[string]CustomFilter
+)
+
 // FiltersConfigPath returns the path to the custom filters file.
 func FiltersConfigPath() string {
 	return filepath.Join(ConfigDir(), "filters.yml")
@@ -32,10 +38,14 @@ func FiltersConfigPath() string {
 
 // LoadCustomFilters reads the custom filters config file.
 // Global filters are trusted only if the config file is secure.
+// Result is cached for the lifetime of the process.
 func LoadCustomFilters() map[string]CustomFilter {
-	path := FiltersConfigPath()
-	trusted := IsSecure(path)
-	return loadCustomFiltersWithTrust(path, trusted)
+	globalFiltersOnce.Do(func() {
+		path := FiltersConfigPath()
+		trusted := IsSecure(path)
+		globalFilters = loadCustomFiltersWithTrust(path, trusted)
+	})
+	return globalFilters
 }
 
 // LoadCustomFiltersFrom reads custom filters from a specific path as untrusted.
@@ -64,6 +74,7 @@ func parseCustomFiltersWithTrust(data []byte, trusted bool) map[string]CustomFil
 	if cfg.Filters == nil {
 		return nil
 	}
+	normalized := make(map[string]CustomFilter, len(cfg.Filters))
 	for k, v := range cfg.Filters {
 		// Security: strictly enforce the Trusted flag by completely rejecting exec
 		// directives from local .chop-filters.yml files
@@ -71,9 +82,9 @@ func parseCustomFiltersWithTrust(data []byte, trusted bool) map[string]CustomFil
 			v.Exec = ""
 		}
 		v.Trusted = trusted
-		cfg.Filters[k] = v
+		normalized[strings.ToLower(k)] = v
 	}
-	return cfg.Filters
+	return normalized
 }
 
 // ValidateFilters checks a filters.yml file for issues: invalid YAML, bad regex
@@ -119,6 +130,8 @@ func ValidateFilters(path string) []string {
 
 // LookupCustomFilter finds a custom filter for the given command and args.
 // It checks "command subcommand" first, then falls back to "command".
+// Keys are stored lowercased (see parseCustomFiltersWithTrust), so lookups
+// are O(1) map accesses.
 func LookupCustomFilter(filters map[string]CustomFilter, command string, args []string) *CustomFilter {
 	if len(filters) == 0 {
 		return nil
@@ -126,26 +139,14 @@ func LookupCustomFilter(filters map[string]CustomFilter, command string, args []
 
 	// Try "command subcommand" match first
 	if len(args) > 0 {
-		fullCmd := command + " " + args[0]
-		if f, ok := filters[fullCmd]; ok {
+		if f, ok := filters[strings.ToLower(command+" "+args[0])]; ok {
 			return &f
-		}
-		// Case-insensitive fallback
-		for key, f := range filters {
-			if strings.EqualFold(key, fullCmd) {
-				return &f
-			}
 		}
 	}
 
 	// Try base command match
-	if f, ok := filters[command]; ok {
+	if f, ok := filters[strings.ToLower(command)]; ok {
 		return &f
-	}
-	for key, f := range filters {
-		if strings.EqualFold(key, command) {
-			return &f
-		}
 	}
 
 	return nil
@@ -170,12 +171,13 @@ func LoadCustomFiltersWithLocal(cwd string) map[string]CustomFilter {
 		return global
 	}
 
-	// Merge: local overrides global
-	if global == nil {
-		return local
+	// Merge: local overrides global. Copy global first to avoid mutating the cache.
+	merged := make(map[string]CustomFilter, len(global)+len(local))
+	for k, v := range global {
+		merged[k] = v
 	}
 	for k, v := range local {
-		global[k] = v
+		merged[k] = v
 	}
-	return global
+	return merged
 }

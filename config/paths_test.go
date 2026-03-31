@@ -8,6 +8,9 @@ import (
 )
 
 func TestConfigDir(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
+
 	// We use a temporary directory for HOME/USERPROFILE to ensure isolation
 	tmpHome := t.TempDir()
 	if runtime.GOOS == "windows" {
@@ -44,6 +47,7 @@ func TestConfigDir(t *testing.T) {
 		// Test with XDG_CONFIG_HOME set (Go ignores this on Darwin/Windows in os.UserConfigDir)
 		xdgConfig := filepath.Join(tmpHome, "custom_xdg")
 		t.Setenv("XDG_CONFIG_HOME", xdgConfig)
+		ResetCacheForTest()
 		dir = ConfigDir()
 		expected := filepath.Join(xdgConfig, "chop")
 		if dir != expected {
@@ -53,6 +57,9 @@ func TestConfigDir(t *testing.T) {
 }
 
 func TestDataDir(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
+
 	tmpHome := t.TempDir()
 	if runtime.GOOS == "windows" {
 		t.Setenv("USERPROFILE", tmpHome)
@@ -84,6 +91,7 @@ func TestDataDir(t *testing.T) {
 		// Test with XDG_DATA_HOME set (DataDir explicitly checks this env var on non-Windows)
 		xdgData := filepath.Join(tmpHome, "custom_xdg_data")
 		t.Setenv("XDG_DATA_HOME", xdgData)
+		ResetCacheForTest()
 		dir = DataDir()
 		expected := filepath.Join(xdgData, "chop")
 		if dir != expected {

@@ -235,6 +235,8 @@ filters:
 }
 
 func TestLoadCustomFilters_Missing(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	tmpDir := t.TempDir()
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", tmpDir)
@@ -247,6 +249,8 @@ func TestLoadCustomFilters_Missing(t *testing.T) {
 }
 
 func TestLoadCustomFilters_InvalidYAML(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	tmpDir := t.TempDir()
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", tmpDir)
@@ -274,6 +278,8 @@ func TestLoadCustomFiltersFromMissing(t *testing.T) {
 }
 
 func TestLoadCustomFiltersWithLocal(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	// 1. Test with empty cwd
 	LoadCustomFiltersWithLocal("")
 
@@ -300,6 +306,7 @@ filters:
 	}
 
 	// 3. Test with both global and local filters
+	ResetCacheForTest()
 	tmpXDG := t.TempDir()
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", tmpXDG)
@@ -371,6 +378,8 @@ filters:
 }
 
 func TestFiltersConfigPath(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	// Test with XDG_CONFIG_HOME
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
 	os.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
@@ -382,6 +391,7 @@ func TestFiltersConfigPath(t *testing.T) {
 	}
 
 	// Test without XDG_CONFIG_HOME
+	ResetCacheForTest()
 	os.Unsetenv("XDG_CONFIG_HOME")
 	p := FiltersConfigPath()
 	if filepath.Base(p) != "filters.yml" {
@@ -390,6 +400,8 @@ func TestFiltersConfigPath(t *testing.T) {
 }
 
 func TestLoadCustomFilters(t *testing.T) {
+	ResetCacheForTest()
+	t.Cleanup(ResetCacheForTest)
 	// Setup a temporary XDG_CONFIG_HOME
 	tmpDir := t.TempDir()
 	oldXDG := os.Getenv("XDG_CONFIG_HOME")
