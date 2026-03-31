@@ -227,26 +227,26 @@ func TestFormatGain(t *testing.T) {
 		YearSavedTokens:   430000,
 	}
 	out := FormatGain(s)
-	if !strings.Contains(out, "45 commands") {
+	if !strings.Contains(out, "45") {
 		t.Errorf("missing today commands in output: %s", out)
 	}
 	if !strings.Contains(out, "12,340") {
 		t.Errorf("missing formatted today saved in output: %s", out)
 	}
-	if !strings.Contains(out, "210 commands") {
+	if !strings.Contains(out, "210") {
 		t.Errorf("missing week commands in output: %s", out)
 	}
-	if !strings.Contains(out, "890 commands") {
+	if !strings.Contains(out, "890") {
 		t.Errorf("missing month commands in output: %s", out)
 	}
-	if !strings.Contains(out, "1150 commands") {
+	if !strings.Contains(out, "1,150") {
 		t.Errorf("missing year commands in output: %s", out)
 	}
 	if !strings.Contains(out, "78.3%") {
 		t.Errorf("missing overall pct in output: %s", out)
 	}
-	if !strings.Contains(out, "compression") {
-		t.Errorf("missing compression label in output: %s", out)
+	if !strings.Contains(out, "Efficiency") {
+		t.Errorf("missing efficiency label in output: %s", out)
 	}
 }
 

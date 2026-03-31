@@ -22,6 +22,7 @@ import (
 const (
 	ansiReset  = "\033[0m"
 	ansiDim    = "\033[2m"
+	ansiBold   = "\033[1m"
 	ansiYellow = "\033[33m"
 	ansiRed    = "\033[31m"
 	ansiGreen  = "\033[32m"
@@ -362,6 +363,8 @@ func GetCommandSummary() ([]CommandSummary, error) {
 		if s.RawTokens > 0 {
 			s.SavingsPct = float64(s.SavedTokens) / float64(s.RawTokens) * 100.0
 		}
+		// Normalize full executable paths (e.g. C:/path/to/acli.exe) to just the binary name.
+		s.BaseCommand = strings.TrimSuffix(filepath.Base(s.BaseCommand), ".exe")
 		summaries = append(summaries, s)
 	}
 	return summaries, rows.Err()
@@ -565,27 +568,73 @@ func CountTokens(s string) int {
 
 // FormatGain prints the gain summary report.
 func FormatGain(s Stats) string {
+	color := IsColorEnabled()
 	pct := func(saved, raw int) float64 {
 		if raw == 0 {
 			return 0
 		}
 		return float64(saved) / float64(raw) * 100.0
 	}
-	return fmt.Sprintf(`chop - token savings report
 
-  today: %d commands   %s tokens saved   (%.1f%% compression)
-  week:  %d commands   %s tokens saved   (%.1f%% compression)
-  month: %d commands   %s tokens saved   (%.1f%% compression)
-  year:  %d commands   %s tokens saved   (%.1f%% compression)
-  total: %d commands   %s tokens saved   (%.1f%% compression)
+	var b strings.Builder
+	const headerText = "Chop \u2014 Token Savings"
+	sep := strings.Repeat("\u2550", 46)
+	divider := strings.Repeat("\u2500", 44)
 
-run 'chop gain --history' for command history`,
-		s.TodayCommands, formatNum(s.TodaySavedTokens), pct(s.TodaySavedTokens, s.TodayRawTokens),
-		s.WeekCommands, formatNum(s.WeekSavedTokens), pct(s.WeekSavedTokens, s.WeekRawTokens),
-		s.MonthCommands, formatNum(s.MonthSavedTokens), pct(s.MonthSavedTokens, s.MonthRawTokens),
-		s.YearCommands, formatNum(s.YearSavedTokens), pct(s.YearSavedTokens, s.YearRawTokens),
-		s.TotalCommands, formatNum(s.TotalSavedTokens), s.OverallSavingsPct,
-	)
+	if color {
+		b.WriteString(ansiBold + headerText + ansiReset + "\n")
+		b.WriteString(ansiDim + sep + ansiReset + "\n")
+	} else {
+		b.WriteString(headerText + "\n")
+		b.WriteString(sep + "\n")
+	}
+	b.WriteString("\n")
+
+	b.WriteString(fmt.Sprintf("  Commands:      %s\n", formatNum(s.TotalCommands)))
+	b.WriteString(fmt.Sprintf("  Input tokens:  %s\n", formatCompact(s.TotalRawTokens)))
+	b.WriteString(fmt.Sprintf("  Tokens saved:  %s\n", formatCompact(s.TotalSavedTokens)))
+	bar := renderBar(s.OverallSavingsPct, 100.0, 20, color)
+	b.WriteString(fmt.Sprintf("  Efficiency:    %s  %.1f%%\n", bar, s.OverallSavingsPct))
+	b.WriteString("\n")
+
+	colHeader := fmt.Sprintf("  %-12s  %8s  %10s  %6s", "Period", "Commands", "Saved", "Avg%")
+	if color {
+		b.WriteString(ansiDim + colHeader + ansiReset + "\n")
+		b.WriteString(ansiDim + "  " + divider + ansiReset + "\n")
+	} else {
+		b.WriteString(colHeader + "\n")
+		b.WriteString("  " + divider + "\n")
+	}
+
+	type periodRow struct {
+		label    string
+		commands int
+		saved    int
+		raw      int
+	}
+	periods := []periodRow{
+		{"Today", s.TodayCommands, s.TodaySavedTokens, s.TodayRawTokens},
+		{"This week", s.WeekCommands, s.WeekSavedTokens, s.WeekRawTokens},
+		{"This month", s.MonthCommands, s.MonthSavedTokens, s.MonthRawTokens},
+		{"This year", s.YearCommands, s.YearSavedTokens, s.YearRawTokens},
+		{"All time", s.TotalCommands, s.TotalSavedTokens, s.TotalRawTokens},
+	}
+	for _, p := range periods {
+		avg := pct(p.saved, p.raw)
+		b.WriteString(fmt.Sprintf("  %-12s  %8s  %10s  %5.1f%%\n",
+			p.label, formatNum(p.commands), formatNum(p.saved), avg))
+	}
+
+	b.WriteString("\n")
+	hints := "  chop gain --summary   per-command breakdown\n" +
+		"  chop gain --history   recent commands\n"
+	if color {
+		b.WriteString(ansiDim + hints + ansiReset)
+	} else {
+		b.WriteString(hints)
+	}
+
+	return b.String()
 }
 
 // FormatHistory formats history records for display.
@@ -597,8 +646,20 @@ func FormatHistory(records []Record, verbose bool, color bool) string {
 		return "no commands tracked yet"
 	}
 	const maxCmd = 50
+
 	var b strings.Builder
-	b.WriteString("recent commands:\n")
+	const headerText = "Chop \u2014 Recent Commands"
+	sep := strings.Repeat("\u2550", 46)
+
+	if color {
+		b.WriteString(ansiBold + headerText + ansiReset + "\n")
+		b.WriteString(ansiDim + sep + ansiReset + "\n")
+	} else {
+		b.WriteString(headerText + "\n")
+		b.WriteString(sep + "\n")
+	}
+	b.WriteString("\n")
+
 	var lastProject string
 	for _, r := range records {
 		if verbose && r.Project != lastProject {
@@ -619,14 +680,11 @@ func FormatHistory(records []Record, verbose bool, color bool) string {
 			cmd = cmd[:maxCmd-3] + "..."
 		}
 		if color {
-			// Color the marker: yellow for 0% savings rows.
-			markerStr := " " + marker + " "
+			markerStr := "  " + marker + " "
 			if isZero {
-				markerStr = ansiYellow + " " + marker + " " + ansiReset
+				markerStr = ansiYellow + "  " + marker + " " + ansiReset
 			}
-			// Dim the timestamp.
 			ts := ansiDim + r.Timestamp + ansiReset
-			// Color the savings %: green >10%, yellow 1-10%, red 0%.
 			var savingsStr string
 			switch {
 			case r.SavingsPct > 10:
@@ -636,16 +694,17 @@ func FormatHistory(records []Record, verbose bool, color bool) string {
 			default:
 				savingsStr = ansiRed + fmt.Sprintf("%5.1f%%", r.SavingsPct) + ansiReset
 			}
-			b.WriteString(fmt.Sprintf("%s%s  %-50s %s  (%d -> %d tokens)\n",
+			b.WriteString(fmt.Sprintf("%s%s  %-50s %s  (%d \u2192 %d tokens)\n",
 				markerStr, ts, cmd, savingsStr, r.RawTokens, r.FilteredTokens))
 		} else {
-			b.WriteString(fmt.Sprintf(" %s %s  %-50s %5.1f%%  (%d -> %d tokens)\n",
+			b.WriteString(fmt.Sprintf("  %s %s  %-50s %5.1f%%  (%d \u2192 %d tokens)\n",
 				marker, r.Timestamp, cmd, r.SavingsPct, r.RawTokens, r.FilteredTokens))
 		}
 	}
-	legend := "\n ! = 0% savings (filter may need improvement)\n"
+
+	legend := "\n  ! = 0% savings (filter may need improvement)\n"
 	if color {
-		legend = "\n" + ansiDim + " ! = 0% savings (filter may need improvement)" + ansiReset + "\n"
+		legend = "\n" + ansiDim + "  ! = 0% savings (filter may need improvement)" + ansiReset + "\n"
 	}
 	b.WriteString(legend)
 	return b.String()
@@ -656,17 +715,51 @@ func FormatSummary(summaries []CommandSummary) string {
 	if len(summaries) == 0 {
 		return "no commands tracked yet"
 	}
+
+	color := IsColorEnabled()
 	var b strings.Builder
-	b.WriteString("per-command savings:\n")
-	b.WriteString(fmt.Sprintf("  %-12s %5s %8s %7s %s\n", "COMMAND", "CALLS", "SAVED", "AVG", ""))
+	const headerText = "Chop \u2014 Token Savings by Command"
+	sep := strings.Repeat("\u2550", 62)
+	divider := strings.Repeat("\u2500", 60)
+
+	if color {
+		b.WriteString(ansiBold + headerText + ansiReset + "\n")
+		b.WriteString(ansiDim + sep + ansiReset + "\n")
+	} else {
+		b.WriteString(headerText + "\n")
+		b.WriteString(sep + "\n")
+	}
+	b.WriteString("\n")
+
+	maxSaved := 0
 	for _, s := range summaries {
+		if s.SavedTokens > maxSaved {
+			maxSaved = s.SavedTokens
+		}
+	}
+
+	colHeader := fmt.Sprintf("  %-3s  %-20s  %5s  %8s  %5s  %s", "#", "Command", "Count", "Saved", "Avg%", "Impact")
+	if color {
+		b.WriteString(ansiDim + colHeader + ansiReset + "\n")
+		b.WriteString(ansiDim + "  " + divider + ansiReset + "\n")
+	} else {
+		b.WriteString(colHeader + "\n")
+		b.WriteString("  " + divider + "\n")
+	}
+
+	for i, s := range summaries {
 		warn := ""
 		if s.ZeroCount > 0 {
-			warn = fmt.Sprintf("(%d calls at 0%%)", s.ZeroCount)
+			warn = fmt.Sprintf("  (%d calls at 0%%)", s.ZeroCount)
 		}
-		b.WriteString(fmt.Sprintf("  %-12s %5d %8s %6.0f%%  %s\n",
-			s.BaseCommand, s.Count, formatNum(s.SavedTokens), s.SavingsPct, warn))
+		impact := renderBar(float64(s.SavedTokens), float64(maxSaved), 20, color)
+		b.WriteString(fmt.Sprintf("  %-3d  %-20s  %5d  %8s  %4.0f%%  %s%s\n",
+			i+1, s.BaseCommand, s.Count, formatNum(s.SavedTokens), s.SavingsPct, impact, warn))
 	}
+
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("  %d command(s) tracked\n", len(summaries)))
+
 	return b.String()
 }
 
@@ -675,9 +768,31 @@ func FormatProjectSummary(summaries []ProjectSummary) string {
 	if len(summaries) == 0 {
 		return "no projects tracked yet"
 	}
+
+	color := IsColorEnabled()
 	var b strings.Builder
-	b.WriteString("per-project savings:\n")
-	b.WriteString(fmt.Sprintf("  %-40s %5s %8s %7s\n", "PROJECT", "CALLS", "SAVED", "AVG"))
+	const headerText = "Chop \u2014 Token Savings by Project"
+	sep := strings.Repeat("\u2550", 66)
+	divider := strings.Repeat("\u2500", 64)
+
+	if color {
+		b.WriteString(ansiBold + headerText + ansiReset + "\n")
+		b.WriteString(ansiDim + sep + ansiReset + "\n")
+	} else {
+		b.WriteString(headerText + "\n")
+		b.WriteString(sep + "\n")
+	}
+	b.WriteString("\n")
+
+	colHeader := fmt.Sprintf("  %-40s  %8s  %8s  %6s", "Project", "Commands", "Saved", "Avg%")
+	if color {
+		b.WriteString(ansiDim + colHeader + ansiReset + "\n")
+		b.WriteString(ansiDim + "  " + divider + ansiReset + "\n")
+	} else {
+		b.WriteString(colHeader + "\n")
+		b.WriteString("  " + divider + "\n")
+	}
+
 	for _, s := range summaries {
 		proj := s.Project
 		if proj == "" {
@@ -686,10 +801,57 @@ func FormatProjectSummary(summaries []ProjectSummary) string {
 		if len(proj) > 40 {
 			proj = "..." + proj[len(proj)-37:]
 		}
-		b.WriteString(fmt.Sprintf("  %-40s %5d %8s %6.0f%%\n",
-			proj, s.Count, formatNum(s.SavedTokens), s.SavingsPct))
+		b.WriteString(fmt.Sprintf("  %-40s  %8s  %8s  %5.0f%%\n",
+			proj, formatNum(s.Count), formatNum(s.SavedTokens), s.SavingsPct))
 	}
+
 	return b.String()
+}
+
+// formatCompact formats a large integer compactly: 1234 → "1.2K", 1234567 → "1.2M".
+func formatCompact(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fK", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
+// renderBar renders a progress bar of the given width using Unicode block characters.
+// pct/maxPct determines the filled fraction. When colored is true, ANSI codes are applied.
+func renderBar(pct, maxPct float64, width int, colored bool) string {
+	const full = "\u2588" // █
+	const empty = "\u2591" // ░
+	if maxPct <= 0 || width <= 0 {
+		e := strings.Repeat(empty, width)
+		if colored {
+			return ansiDim + e + ansiReset
+		}
+		return e
+	}
+	filled := int(pct/maxPct*float64(width) + 0.5)
+	if filled > width {
+		filled = width
+	}
+	if filled < 0 {
+		filled = 0
+	}
+	filledStr := strings.Repeat(full, filled)
+	emptyStr := strings.Repeat(empty, width-filled)
+	if colored {
+		result := ""
+		if filled > 0 {
+			result += ansiGreen + filledStr + ansiReset
+		}
+		if filled < width {
+			result += ansiDim + emptyStr + ansiReset
+		}
+		return result
+	}
+	return filledStr + emptyStr
 }
 
 func formatNum(n int) string {
@@ -805,17 +967,35 @@ func GetHistorySince(limit int, d time.Duration) ([]Record, error) {
 
 // FormatGainSince formats a stats report for a --since time window.
 func FormatGainSince(s Stats, sinceStr string) string {
-	return fmt.Sprintf(`chop - token savings report (last %s)
+	color := IsColorEnabled()
+	var b strings.Builder
 
-  commands: %d
-  saved:    %s tokens
-  avg:      %.1f%%
+	headerText := fmt.Sprintf("Chop \u2014 Token Savings (last %s)", sinceStr)
+	sep := strings.Repeat("\u2550", 46)
 
-run 'chop gain --since %s --history' for command history`,
-		sinceStr,
-		s.TotalCommands, formatNum(s.TotalSavedTokens), s.OverallSavingsPct,
-		sinceStr,
-	)
+	if color {
+		b.WriteString(ansiBold + headerText + ansiReset + "\n")
+		b.WriteString(ansiDim + sep + ansiReset + "\n")
+	} else {
+		b.WriteString(headerText + "\n")
+		b.WriteString(sep + "\n")
+	}
+	b.WriteString("\n")
+
+	b.WriteString(fmt.Sprintf("  Commands:      %s\n", formatNum(s.TotalCommands)))
+	b.WriteString(fmt.Sprintf("  Tokens saved:  %s\n", formatNum(s.TotalSavedTokens)))
+	bar := renderBar(s.OverallSavingsPct, 100.0, 20, color)
+	b.WriteString(fmt.Sprintf("  Efficiency:    %s  %.1f%%\n", bar, s.OverallSavingsPct))
+	b.WriteString("\n")
+
+	hint := fmt.Sprintf("  chop gain --since %s --history   recent commands\n", sinceStr)
+	if color {
+		b.WriteString(ansiDim + hint + ansiReset)
+	} else {
+		b.WriteString(hint)
+	}
+
+	return b.String()
 }
 
 // ParseSinceDuration parses duration strings like "7d", "2w", "24h", "30m".

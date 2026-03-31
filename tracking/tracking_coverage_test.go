@@ -264,7 +264,7 @@ func TestFormatProjectSummary_ContainsProjects(t *testing.T) {
 	if !strings.Contains(out, "beta") {
 		t.Errorf("missing beta project in output: %s", out)
 	}
-	if !strings.Contains(out, "per-project savings") {
+	if !strings.Contains(out, "by Project") {
 		t.Errorf("missing header in output: %s", out)
 	}
 }
