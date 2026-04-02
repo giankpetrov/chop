@@ -425,6 +425,12 @@ func runConfig(args []string) {
 	switch args[0] {
 	case "init":
 		initConfig()
+	case "edit":
+		path := config.Path()
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			initConfig()
+		}
+		openInEditor(path)
 	case "export":
 		configExport()
 	case "import":
@@ -434,7 +440,7 @@ func runConfig(args []string) {
 		}
 		configImport(args[1])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop config [init|export|import]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop config [init|edit|export|import]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -538,6 +544,38 @@ func configImport(src string) {
 			os.Exit(1)
 		}
 		fmt.Printf("imported: %s\n", dest)
+	}
+}
+
+// openInEditor opens the given file in the user's preferred editor.
+// Editor resolution order: $VISUAL → $EDITOR → common editors (code, vim, nano, notepad).
+func openInEditor(path string) {
+	editor := os.Getenv("VISUAL")
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor == "" {
+		candidates := []string{"code", "vim", "nano", "notepad"}
+		for _, e := range candidates {
+			if _, err := exec.LookPath(e); err == nil {
+				editor = e
+				break
+			}
+		}
+	}
+	if editor == "" {
+		fmt.Fprintln(os.Stderr, "chop: no editor found — set $EDITOR or $VISUAL")
+		fmt.Fprintf(os.Stderr, "      file is at: %s\n", path)
+		os.Exit(1)
+	}
+
+	cmd := exec.Command(editor, path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "chop: editor exited with error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -944,8 +982,18 @@ func runLocal(args []string) {
 		localRemove(args[1:])
 	case "clear":
 		localClear()
+	case "edit":
+		path := localConfigFile
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte("disabled: []\n"), 0o600); err != nil {
+				fmt.Fprintf(os.Stderr, "chop: failed to create %s: %v\n", path, err)
+				os.Exit(1)
+			}
+			fmt.Printf("created: %s\n", path)
+		}
+		openInEditor(path)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop local [add|remove|clear]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop local [add|remove|clear|edit]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -1374,8 +1422,28 @@ func runFilter(args []string) {
 			os.Exit(1)
 		}
 		filterNew(strings.Join(args[1:], " "))
+	case "edit":
+		local := len(args) > 1 && args[1] == "--local"
+		if local {
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "chop: %v\n", err)
+				os.Exit(1)
+			}
+			path := filepath.Join(cwd, ".chop-filters.yml")
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				initFiltersConfig(true)
+			}
+			openInEditor(path)
+		} else {
+			path := config.FiltersConfigPath()
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				initFiltersConfig(false)
+			}
+			openInEditor(path)
+		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop filter [path|init|add|remove|test|new]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop filter [path|init|add|remove|test|new|edit]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -1989,20 +2057,21 @@ _chop_completion() {
             esac ;;
         filter)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "path init add remove test new" -- "$cur"))
+                COMPREPLY=($(compgen -W "path init edit add remove test new" -- "$cur"))
             else
                 case "${COMP_WORDS[2]}" in
                     add)  COMPREPLY=($(compgen -W "--keep --drop --head --tail --exec --local" -- "$cur")) ;;
                     init) COMPREPLY=($(compgen -W "--local" -- "$cur")) ;;
+                    edit) COMPREPLY=($(compgen -W "--local" -- "$cur")) ;;
                 esac
             fi ;;
         config)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "init export import" -- "$cur"))
+                COMPREPLY=($(compgen -W "init edit export import" -- "$cur"))
             fi ;;
         local)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "add remove clear" -- "$cur"))
+                COMPREPLY=($(compgen -W "add remove clear edit" -- "$cur"))
             fi ;;
         init|setup)
             COMPREPLY=($(compgen -W "--global --gemini --codex --antigravity --uninstall --status" -- "$cur")) ;;
@@ -2047,17 +2116,18 @@ _chop() {
                     ;;
                 filter)
                     if [[ ${#words} -eq 3 ]]; then
-                        _values 'subcommand' 'path' 'init' 'add' 'remove' 'test' 'new'
+                        _values 'subcommand' 'path' 'init' 'edit' 'add' 'remove' 'test' 'new'
                     else
                         case ${words[3]} in
-                            add) _values 'option' '--keep' '--drop' '--head' '--tail' '--exec' '--local' ;;
+                            add)  _values 'option' '--keep' '--drop' '--head' '--tail' '--exec' '--local' ;;
                             init) _values 'option' '--local' ;;
+                            edit) _values 'option' '--local' ;;
                         esac
                     fi ;;
                 config)
-                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'init' 'export' 'import' ;;
+                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'init' 'edit' 'export' 'import' ;;
                 local)
-                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'add' 'remove' 'clear' ;;
+                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'add' 'remove' 'clear' 'edit' ;;
                 init|setup)
                     _values 'option' '--global' '--gemini' '--codex' '--antigravity' '--uninstall' '--status' ;;
                 completion)
@@ -2098,18 +2168,20 @@ complete -c chop -n "__fish_seen_subcommand_from gain" -l no-track   -d "Stop tr
 complete -c chop -n "__fish_seen_subcommand_from gain" -l resume-track -d "Resume tracking command"  -r
 
 # filter subcommands
-complete -c chop -n "__fish_seen_subcommand_from filter; and not __fish_seen_subcommand_from path init add remove test new" \
-    -a "path init add remove test new"
+complete -c chop -n "__fish_seen_subcommand_from filter; and not __fish_seen_subcommand_from path init edit add remove test new" \
+    -a "path init edit add remove test new"
 complete -c chop -n "__fish_seen_subcommand_from filter; and __fish_seen_subcommand_from add" \
     -l keep -l drop -l head -l tail -l exec -l local
+complete -c chop -n "__fish_seen_subcommand_from filter; and __fish_seen_subcommand_from edit" \
+    -l local -d "Edit local project filters"
 
 # config subcommands
-complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init export import" \
-    -a "init export import"
+complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init edit export import" \
+    -a "init edit export import"
 
 # local subcommands
-complete -c chop -n "__fish_seen_subcommand_from local; and not __fish_seen_subcommand_from add remove clear" \
-    -a "add remove clear"
+complete -c chop -n "__fish_seen_subcommand_from local; and not __fish_seen_subcommand_from add remove clear edit" \
+    -a "add remove clear edit"
 
 # init flags
 complete -c chop -n "__fish_seen_subcommand_from init setup" \
@@ -2159,18 +2231,18 @@ Register-ArgumentCompleter -Native -CommandName chop -ScriptBlock {
         }
         'filter' {
             if ($words.Count -eq 3) {
-                & $complete @('path','init','add','remove','test','new')
+                & $complete @('path','init','edit','add','remove','test','new')
             } elseif ($words[2].Value -eq 'add') {
                 & $complete @('--keep','--drop','--head','--tail','--exec','--local')
-            } elseif ($words[2].Value -eq 'init') {
+            } elseif ($words[2].Value -in @('init','edit')) {
                 & $complete @('--local')
             }
         }
         'config' {
-            if ($words.Count -eq 3) { & $complete @('init','export','import') }
+            if ($words.Count -eq 3) { & $complete @('init','edit','export','import') }
         }
         'local' {
-            if ($words.Count -eq 3) { & $complete @('add','remove','clear') }
+            if ($words.Count -eq 3) { & $complete @('add','remove','clear','edit') }
         }
         'init' { & $complete @('--global','--gemini','--codex','--antigravity','--uninstall','--status') }
         'completion' { & $complete @('bash','zsh','fish','powershell') }
@@ -2296,6 +2368,8 @@ func printHelp() {
 	b.WriteString(row("filter test <cmd>", "Test a custom filter against stdin"))
 	b.WriteString(row("filter init", "Create starter global filters.yml"))
 	b.WriteString(row("filter init "+flag("--local"), "Create starter .chop-filters.yml in cwd"))
+	b.WriteString(row("filter edit", "Open global filters.yml in $EDITOR"))
+	b.WriteString(row("filter edit "+flag("--local"), "Open local .chop-filters.yml in $EDITOR"))
 	b.WriteString(row("filter path", "Show filters config file path"))
 	b.WriteString(row("diff <cmd> [args...]", "Show raw vs filtered output side-by-side"))
 	b.WriteString(row("diff "+flag("--stdin")+" <cmd>", "Diff using stdin instead of running command"))
@@ -2305,6 +2379,7 @@ func printHelp() {
 	b.WriteString(section("Config"))
 	b.WriteString(row("config", "Show global config path and contents"))
 	b.WriteString(row("config init", "Create a starter global config.yml"))
+	b.WriteString(row("config edit", "Open global config.yml in $EDITOR"))
 	b.WriteString(row("config export", "Export config.yml + filters.yml to stdout"))
 	b.WriteString(row("config import <file>", "Import config from a file (created by export)"))
 	b.WriteString(row("global", "Show global config"))
@@ -2314,6 +2389,7 @@ func printHelp() {
 	b.WriteString(row("local add \"git diff\"", "Disable a command in this project"))
 	b.WriteString(row("local remove \"git diff\"", "Re-enable a command in this project"))
 	b.WriteString(row("local clear", "Remove local project config"))
+	b.WriteString(row("local edit", "Open local .chop.yml in $EDITOR"))
 	b.WriteString("\n")
 
 	// Integrations
