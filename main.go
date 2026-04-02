@@ -608,13 +608,18 @@ func initConfig() {
 
 	starter := `# Global chop config
 # Docs: https://github.com/AgusRdz/chop#configuration
-#
+
 # Preferred editor for "chop config edit", "chop filter edit", "chop local edit".
 # Falls back to $VISUAL, $EDITOR, then auto-detects (code, vim, nano, notepad).
-# editor: vim
+# Run: chop config set editor <vim|code|nano|...>
+# editor: code
 
 # Disable built-in filters for specific commands globally.
 # Use "chop local add" to disable per-project instead.
+# Both formats are supported:
+#   disabled: ["git diff", "docker ps"]
+#   disabled:
+#     - git diff
 
 disabled:
   - git diff
