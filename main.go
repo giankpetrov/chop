@@ -431,6 +431,13 @@ func runConfig(args []string) {
 			initConfig()
 		}
 		openInEditor(path)
+	case "set":
+		if len(args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: chop config set <key> <value>")
+			fmt.Fprintln(os.Stderr, "       chop config set editor vim")
+			os.Exit(1)
+		}
+		configSet(args[1], args[2])
 	case "export":
 		configExport()
 	case "import":
@@ -440,7 +447,7 @@ func runConfig(args []string) {
 		}
 		configImport(args[1])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop config [init|edit|export|import]\n", args[0])
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\nusage: chop config [init|edit|set|export|import]\n", args[0])
 		os.Exit(1)
 	}
 }
@@ -620,6 +627,58 @@ disabled:
 
 	fmt.Printf("created: %s\n", path)
 	fmt.Println("edit this file to disable built-in filters globally")
+}
+
+// configSet writes a single key-value pair to the global config file.
+// If the key already exists it is updated in-place; otherwise it is appended.
+// Supported keys: editor
+func configSet(key, value string) {
+	allowed := map[string]bool{"editor": true}
+	if !allowed[strings.ToLower(key)] {
+		fmt.Fprintf(os.Stderr, "chop: unknown config key %q\n", key)
+		fmt.Fprintln(os.Stderr, "supported keys: editor")
+		os.Exit(1)
+	}
+
+	path := config.Path()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		initConfig()
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to read config: %v\n", err)
+		os.Exit(1)
+	}
+
+	newLine := key + ": " + value
+	lines := strings.Split(string(data), "\n")
+	updated := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		k, _, ok := strings.Cut(trimmed, ":")
+		if ok && strings.TrimSpace(k) == key {
+			lines[i] = newLine
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		lines = append(lines, newLine)
+	}
+
+	out := strings.Join(lines, "\n")
+	// Ensure single trailing newline
+	out = strings.TrimRight(out, "\n") + "\n"
+
+	if err := os.WriteFile(path, []byte(out), 0o600); err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to write config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s: %s\n", key, value)
 }
 
 func runGain(args []string) {
@@ -2077,7 +2136,9 @@ _chop_completion() {
             fi ;;
         config)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "init edit export import" -- "$cur"))
+                COMPREPLY=($(compgen -W "init edit set export import" -- "$cur"))
+            elif [[ ${COMP_CWORD} -eq 3 && "${COMP_WORDS[2]}" == "set" ]]; then
+                COMPREPLY=($(compgen -W "editor" -- "$cur"))
             fi ;;
         local)
             if [[ ${COMP_CWORD} -eq 2 ]]; then
@@ -2135,7 +2196,11 @@ _chop() {
                         esac
                     fi ;;
                 config)
-                    [[ ${#words} -eq 3 ]] && _values 'subcommand' 'init' 'edit' 'export' 'import' ;;
+                    if [[ ${#words} -eq 3 ]]; then
+                        _values 'subcommand' 'init' 'edit' 'set' 'export' 'import'
+                    elif [[ ${#words} -eq 4 && ${words[3]} == 'set' ]]; then
+                        _values 'key' 'editor'
+                    fi ;;
                 local)
                     [[ ${#words} -eq 3 ]] && _values 'subcommand' 'add' 'remove' 'clear' 'edit' ;;
                 init|setup)
@@ -2186,8 +2251,10 @@ complete -c chop -n "__fish_seen_subcommand_from filter; and __fish_seen_subcomm
     -l local -d "Edit local project filters"
 
 # config subcommands
-complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init edit export import" \
-    -a "init edit export import"
+complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init edit set export import" \
+    -a "init edit set export import"
+complete -c chop -n "__fish_seen_subcommand_from config; and __fish_seen_subcommand_from set" \
+    -a "editor" -d "Preferred editor for chop edit commands"
 
 # local subcommands
 complete -c chop -n "__fish_seen_subcommand_from local; and not __fish_seen_subcommand_from add remove clear edit" \
@@ -2249,7 +2316,8 @@ Register-ArgumentCompleter -Native -CommandName chop -ScriptBlock {
             }
         }
         'config' {
-            if ($words.Count -eq 3) { & $complete @('init','edit','export','import') }
+            if ($words.Count -eq 3) { & $complete @('init','edit','set','export','import') }
+            elseif ($words.Count -eq 4 -and $words[2].Value -eq 'set') { & $complete @('editor') }
         }
         'local' {
             if ($words.Count -eq 3) { & $complete @('add','remove','clear','edit') }
@@ -2389,7 +2457,8 @@ func printHelp() {
 	b.WriteString(section("Config"))
 	b.WriteString(row("config", "Show global config path and contents"))
 	b.WriteString(row("config init", "Create a starter global config.yml"))
-	b.WriteString(row("config edit", "Open global config.yml in $EDITOR"))
+	b.WriteString(row("config set editor <vim|code|...>", "Set preferred editor for chop edit commands"))
+	b.WriteString(row("config edit", "Open global config.yml in preferred editor"))
 	b.WriteString(row("config export", "Export config.yml + filters.yml to stdout"))
 	b.WriteString(row("config import <file>", "Import config from a file (created by export)"))
 	b.WriteString(row("global", "Show global config"))
