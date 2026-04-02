@@ -347,21 +347,34 @@ Errors and warnings are always shown in full and floated to the top.
 
 ### Global config
 
-`~/.config/chop/config.yml` — disable built-in filters globally:
+`~/.config/chop/config.yml` — configure editor preference and disable built-in filters globally:
 
 ```bash
-chop config            # show current config
-chop config init       # create a starter config.yml
-chop config export     # export config + filters to stdout (for syncing to another machine)
-chop config import <file>  # import a previously exported config
+chop config                        # show current config
+chop config init                   # create a starter config.yml
+chop config set editor <vim|code|nano|...>  # set preferred editor
+chop config edit                   # open config.yml in your editor
+chop config export                 # export config + filters to stdout (for syncing)
+chop config import <file>          # import a previously exported config
 ```
 
 ```yaml
 # ~/.config/chop/config.yml
+
+# Preferred editor for all "chop * edit" commands.
+# Falls back to $VISUAL, $EDITOR, then auto-detects (code, vim, nano, notepad).
+# Set without opening a file: chop config set editor vim
+editor: vim
+
+# Disable built-in filters for specific commands.
+# Matching is prefix-based: "git diff" disables all git diff variants.
+# Both formats are supported:
 disabled:
+  - git diff            # disables git diff, git diff HEAD, git diff --cached, etc.
   - curl                # disables all curl commands
-  - "git diff"          # disables only git diff (git status still compressed)
 ```
+
+> **Why disable `git diff`?** chop compresses diff output by default, which is useful for AI agents but breaks interactive use. Adding `git diff` to disabled ensures you always see the full diff when running it yourself.
 
 ### Local config (per-project)
 
@@ -372,6 +385,7 @@ chop local                      # show current local config
 chop local add "git diff"       # disable git diff in this project
 chop local remove "git diff"    # re-enable git diff
 chop local clear                # remove local config entirely
+chop local edit                 # open .chop.yml in your editor
 ```
 
 The first `chop local add` creates `.chop.yml` and adds it to `.gitignore` automatically.

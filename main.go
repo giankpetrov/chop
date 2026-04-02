@@ -2520,8 +2520,12 @@ func printHelp() {
 
 	// Config reference
 	b.WriteString(bold("Config") + dim(" ("+config.Path()+")") + "\n")
-	b.WriteString(fmt.Sprintf("  %s [cmd1, \"git diff\"]  %s\n",
-		yellow("disabled:"), dim("Skip filtering for these commands")))
+	b.WriteString(fmt.Sprintf("  %s %s  %s\n",
+		yellow("editor:"), dim("vim"),
+		dim("Preferred editor for all 'chop * edit' commands")))
+	b.WriteString(fmt.Sprintf("  %s %s  %s\n",
+		yellow("disabled:"), dim("- git diff"),
+		dim("Prefix-based: 'git diff' disables all git diff variants")))
 	b.WriteString("\n")
 
 	// Custom filters reference
