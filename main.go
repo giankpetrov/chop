@@ -560,10 +560,9 @@ func initConfig() {
 #
 # Disable built-in filters for specific commands globally.
 # Use "chop local add" to disable per-project instead.
-#
-# disabled: ["git diff", "docker ps"]
 
-disabled: []
+disabled:
+  - git diff
 `
 
 	if err := os.WriteFile(path, []byte(starter), 0o600); err != nil {
