@@ -228,6 +228,25 @@ func TestLoadFrom_SubcommandQuoted(t *testing.T) {
 	}
 }
 
+func TestLoadFrom_Editor(t *testing.T) {
+	cases := []struct {
+		content string
+		want    string
+	}{
+		{"editor: vim\n", "vim"},
+		{`editor: "code"` + "\n", "code"},
+		{"editor: 'nano'\n", "nano"},
+		{"disabled: [git]\n", ""},
+	}
+	for _, tc := range cases {
+		tmp := writeTemp(t, tc.content)
+		cfg := LoadFrom(tmp)
+		if cfg.Editor != tc.want {
+			t.Errorf("content %q: expected editor %q, got %q", tc.content, tc.want, cfg.Editor)
+		}
+	}
+}
+
 func TestPath_Default(t *testing.T) {
 	old := os.Getenv("XDG_CONFIG_HOME")
 	os.Unsetenv("XDG_CONFIG_HOME")

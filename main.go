@@ -456,6 +456,9 @@ func showConfig() {
 	}
 
 	cfg := config.Load()
+	if cfg.Editor != "" {
+		fmt.Printf("%s %s\n", bold("editor:"), cyan(cfg.Editor))
+	}
 	if len(cfg.Disabled) == 0 {
 		fmt.Printf("%s %s\n", bold("disabled:"), dim("(none)"))
 		return
@@ -548,9 +551,12 @@ func configImport(src string) {
 }
 
 // openInEditor opens the given file in the user's preferred editor.
-// Editor resolution order: $VISUAL → $EDITOR → common editors (code, vim, nano, notepad).
+// Editor resolution order: config.editor → $VISUAL → $EDITOR → common editors (code, vim, nano, notepad).
 func openInEditor(path string) {
-	editor := os.Getenv("VISUAL")
+	editor := config.Load().Editor
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
 	if editor == "" {
 		editor = os.Getenv("EDITOR")
 	}
@@ -596,6 +602,10 @@ func initConfig() {
 	starter := `# Global chop config
 # Docs: https://github.com/AgusRdz/chop#configuration
 #
+# Preferred editor for "chop config edit", "chop filter edit", "chop local edit".
+# Falls back to $VISUAL, $EDITOR, then auto-detects (code, vim, nano, notepad).
+# editor: vim
+
 # Disable built-in filters for specific commands globally.
 # Use "chop local add" to disable per-project instead.
 

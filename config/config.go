@@ -11,6 +11,7 @@ import (
 // Config holds user preferences loaded from ~/.config/chop/config.yml.
 type Config struct {
 	Disabled []string
+	Editor   string
 }
 
 var (
@@ -100,7 +101,7 @@ func Validate(path string) []string {
 	}
 
 	var errs []string
-	knownKeys := map[string]bool{"disabled": true}
+	knownKeys := map[string]bool{"disabled": true, "editor": true}
 
 	for i, line := range strings.Split(string(data), "\n") {
 		// Strip comments
@@ -153,6 +154,8 @@ func parse(content string) Config {
 		switch key {
 		case "disabled":
 			cfg.Disabled = parseList(value)
+		case "editor":
+			cfg.Editor = strings.Trim(value, "\"'")
 		}
 	}
 
