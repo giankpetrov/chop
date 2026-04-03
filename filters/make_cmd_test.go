@@ -120,3 +120,21 @@ func TestFilterMake_WithErrors(t *testing.T) {
 		t.Errorf("expected '1 errors' count, got:\n%s", got)
 	}
 }
+
+func TestFilterMake_NonCBuild(t *testing.T) {
+	// Makefile running npm/dotnet targets — no gcc patterns, should fall through to AutoDetect
+	raw := ""
+	for i := 0; i < 30; i++ {
+		raw += "npm run build --workspace=packages/api\n"
+		raw += "dotnet build src/MyApp.csproj --configuration Release\n"
+		raw += "Build succeeded.\n"
+	}
+
+	got, err := filterMake(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) >= len(raw) {
+		t.Errorf("expected compression via AutoDetect fallback, got %d >= %d", len(got), len(raw))
+	}
+}

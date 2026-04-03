@@ -20,7 +20,7 @@ func filterMake(raw string) (string, error) {
 		return "", nil
 	}
 	if !looksLikeMakeOutput(trimmed) {
-		return raw, nil
+		return AutoDetect(raw)
 	}
 
 	raw = trimmed
@@ -74,7 +74,7 @@ func filterMake(raw string) (string, error) {
 	} else if len(warnings) > 0 {
 		out = append(out, fmt.Sprintf("build ok (%d warnings)", len(warnings)))
 	} else {
-		return raw, nil
+		return AutoDetect(raw)
 	}
 
 	result := strings.Join(out, "\n")
