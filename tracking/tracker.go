@@ -713,11 +713,20 @@ func FormatHistory(records []Record, verbose bool, color bool) string {
 		}
 	}
 
-	legend := "\n  ! = 0% savings (filter may need improvement)\n"
-	if color {
-		legend = "\n" + ansiDim + "  ! = 0% savings (filter may need improvement)" + ansiReset + "\n"
+	hasZero := false
+	for _, r := range records {
+		if r.SavingsPct == 0 && r.RawTokens > 0 {
+			hasZero = true
+			break
+		}
 	}
-	b.WriteString(legend)
+	if hasZero {
+		legend := "\n  ! = 0% savings (filter may need improvement)\n"
+		if color {
+			legend = "\n" + ansiDim + "  ! = 0% savings (filter may need improvement)" + ansiReset + "\n"
+		}
+		b.WriteString(legend)
+	}
 	return b.String()
 }
 
