@@ -629,6 +629,98 @@ func looksLikeSshOutput(s string) bool {
 		strings.Contains(s, "Last login:")
 }
 
+func looksLikeGolangciLintOutput(s string) bool {
+	return strings.Contains(s, ".go:") &&
+		(strings.Contains(s, "(errcheck)") ||
+			strings.Contains(s, "(stylecheck)") ||
+			strings.Contains(s, "(ineffassign)") ||
+			strings.Contains(s, "(govet)") ||
+			strings.Contains(s, "(unused)") ||
+			strings.Contains(s, "issues.") ||
+			strings.Contains(s, "golangci-lint") ||
+			strings.Contains(s, "[runner]") ||
+			// generic: a line ending in "(word)" after a .go: location
+			containsLinterAnnotation(s))
+}
+
+// containsLinterAnnotation returns true if any line looks like a golangci-lint issue:
+// "file.go:N:N: message (lintername)"
+func containsLinterAnnotation(s string) bool {
+	lines := strings.SplitN(s, "\n", 10)
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, ".go:") && strings.HasSuffix(line, ")") {
+			open := strings.LastIndex(line, "(")
+			if open >= 0 {
+				inner := line[open+1 : len(line)-1]
+				if len(inner) > 0 && !strings.Contains(inner, " ") {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func looksLikeTurboOutput(s string) bool {
+	return strings.Contains(s, "cache hit") ||
+		strings.Contains(s, "cache miss") ||
+		strings.Contains(s, "Packages in scope") ||
+		strings.Contains(s, "Remote caching") ||
+		(strings.Contains(s, "Tasks:") && strings.Contains(s, "cached"))
+}
+
+func looksLikeSnykOutput(s string) bool {
+	return strings.Contains(s, "✗") ||
+		strings.Contains(s, "Tested") ||
+		strings.Contains(s, "snyk.io") ||
+		strings.Contains(s, "vulnerable paths") ||
+		strings.Contains(s, "Test Summary") ||
+		strings.Contains(s, "Total issues")
+}
+
+func looksLikeTrivyOutput(s string) bool {
+	return (strings.Contains(s, "Total:") && strings.Contains(s, "CRITICAL")) ||
+		strings.Contains(s, "Vulnerability scanning") ||
+		strings.Contains(s, "CVE-") ||
+		strings.Contains(s, "trivy")
+}
+
+func looksLikePoetryInstallOutput(s string) bool {
+	return strings.Contains(s, "Package operations:") ||
+		strings.Contains(s, "Resolving dependencies") ||
+		strings.Contains(s, "Writing lock file") ||
+		strings.Contains(s, "• Installing") ||
+		strings.Contains(s, "- Installing")
+}
+
+func looksLikePoetryShowOutput(s string) bool {
+	// poetry show: lines of "pkgname  version  description" with no header
+	return !strings.Contains(s, "Package operations:") &&
+		!strings.Contains(s, "Resolving dependencies") &&
+		strings.Contains(s, "  ")
+}
+
+func looksLikeCondaInstallOutput(s string) bool {
+	return strings.Contains(s, "Solving environment:") ||
+		strings.Contains(s, "Collecting package metadata") ||
+		strings.Contains(s, "## Package Plan ##") ||
+		strings.Contains(s, "The following NEW packages will be INSTALLED") ||
+		strings.Contains(s, "Executing transaction:")
+}
+
+func looksLikeCondaListOutput(s string) bool {
+	return strings.Contains(s, "# packages in environment") ||
+		(strings.Contains(s, "# Name") && strings.Contains(s, "Version") && strings.Contains(s, "Build"))
+}
+
+func looksLikePipenvOutput(s string) bool {
+	return strings.Contains(s, "Pipfile") ||
+		strings.Contains(s, "Virtualenv location:") ||
+		strings.Contains(s, "Installing dependencies from Pipfile.lock") ||
+		strings.Contains(s, "pipenv")
+}
+
 // isHexPrefix checks if string starts with what looks like a hex hash (git oneline format)
 func isHexPrefix(s string) bool {
 	if len(s) < 7 {
