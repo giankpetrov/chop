@@ -435,6 +435,7 @@ func runConfig(args []string) {
 		if len(args) < 3 {
 			fmt.Fprintln(os.Stderr, "usage: chop config set <key> <value>")
 			fmt.Fprintln(os.Stderr, "       chop config set editor vim")
+			fmt.Fprintln(os.Stderr, "       chop config set history_compressed_only true")
 			os.Exit(1)
 		}
 		configSet(args[1], args[2])
@@ -465,6 +466,9 @@ func showConfig() {
 	cfg := config.Load()
 	if cfg.Editor != "" {
 		fmt.Printf("%s %s\n", bold("editor:"), cyan(cfg.Editor))
+	}
+	if cfg.HistoryCompressedOnly {
+		fmt.Printf("%s %s\n", bold("history_compressed_only:"), cyan("true"))
 	}
 	if len(cfg.Disabled) == 0 {
 		fmt.Printf("%s %s\n", bold("disabled:"), dim("(none)"))
@@ -614,6 +618,10 @@ func initConfig() {
 # Run: chop config set editor <vim|code|nano|...>
 # editor: code
 
+# Only show commands that were actually compressed in "chop gain --history".
+# When true, commands with 0% savings are hidden from the history view.
+# history_compressed_only: false
+
 # Disable built-in filters for specific commands globally.
 # Use "chop local add" to disable per-project instead.
 # Both formats are supported:
@@ -636,12 +644,16 @@ disabled:
 
 // configSet writes a single key-value pair to the global config file.
 // If the key already exists it is updated in-place; otherwise it is appended.
-// Supported keys: editor
+// Supported keys: editor, history_compressed_only
 func configSet(key, value string) {
-	allowed := map[string]bool{"editor": true}
+	allowed := map[string]bool{"editor": true, "history_compressed_only": true}
 	if !allowed[strings.ToLower(key)] {
 		fmt.Fprintf(os.Stderr, "chop: unknown config key %q\n", key)
-		fmt.Fprintln(os.Stderr, "supported keys: editor")
+		fmt.Fprintln(os.Stderr, "supported keys: editor, history_compressed_only")
+		os.Exit(1)
+	}
+	if key == "history_compressed_only" && value != "true" && value != "false" {
+		fmt.Fprintf(os.Stderr, "chop: history_compressed_only must be true or false\n")
 		os.Exit(1)
 	}
 
@@ -903,6 +915,9 @@ func runGain(args []string) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "chop: failed to read history: %v\n", err)
 			os.Exit(1)
+		}
+		if config.Load().HistoryCompressedOnly {
+			records = tracking.FilterCompressed(records)
 		}
 		fmt.Print(tracking.FormatHistory(records, verbose, tracking.IsColorEnabled()))
 		return
@@ -2259,7 +2274,7 @@ complete -c chop -n "__fish_seen_subcommand_from filter; and __fish_seen_subcomm
 complete -c chop -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from init edit set export import" \
     -a "init edit set export import"
 complete -c chop -n "__fish_seen_subcommand_from config; and __fish_seen_subcommand_from set" \
-    -a "editor" -d "Preferred editor for chop edit commands"
+    -a "editor history_compressed_only" -d "Config key to set"
 
 # local subcommands
 complete -c chop -n "__fish_seen_subcommand_from local; and not __fish_seen_subcommand_from add remove clear edit" \
@@ -2463,6 +2478,7 @@ func printHelp() {
 	b.WriteString(row("config", "Show global config path and contents"))
 	b.WriteString(row("config init", "Create a starter global config.yml"))
 	b.WriteString(row("config set editor <vim|code|...>", "Set preferred editor for chop edit commands"))
+	b.WriteString(row("config set history_compressed_only <true|false>", "Only show compressed commands in history"))
 	b.WriteString(row("config edit", "Open global config.yml in preferred editor"))
 	b.WriteString(row("config export", "Export config.yml + filters.yml to stdout"))
 	b.WriteString(row("config import <file>", "Import config from a file (created by export)"))
@@ -2523,6 +2539,9 @@ func printHelp() {
 	b.WriteString(fmt.Sprintf("  %s %s  %s\n",
 		yellow("editor:"), dim("vim"),
 		dim("Preferred editor for all 'chop * edit' commands")))
+	b.WriteString(fmt.Sprintf("  %s %s  %s\n",
+		yellow("history_compressed_only:"), dim("true"),
+		dim("Hide 0% savings entries from 'chop gain --history'")))
 	b.WriteString(fmt.Sprintf("  %s %s  %s\n",
 		yellow("disabled:"), dim("- git diff"),
 		dim("Prefix-based: 'git diff' disables all git diff variants")))

@@ -10,8 +10,9 @@ import (
 
 // Config holds user preferences loaded from ~/.config/chop/config.yml.
 type Config struct {
-	Disabled []string
-	Editor   string
+	Disabled             []string
+	Editor               string
+	HistoryCompressedOnly bool
 }
 
 var (
@@ -101,7 +102,7 @@ func Validate(path string) []string {
 	}
 
 	var errs []string
-	knownKeys := map[string]bool{"disabled": true, "editor": true}
+	knownKeys := map[string]bool{"disabled": true, "editor": true, "history_compressed_only": true}
 
 	for i, line := range strings.Split(string(data), "\n") {
 		// Strip comments
@@ -156,6 +157,8 @@ func parse(content string) Config {
 			cfg.Disabled = parseList(value)
 		case "editor":
 			cfg.Editor = strings.Trim(value, "\"'")
+		case "history_compressed_only":
+			cfg.HistoryCompressedOnly = strings.TrimSpace(value) == "true"
 		}
 	}
 

@@ -295,6 +295,17 @@ func GetHistory(limit int) ([]Record, error) {
 	return records, rows.Err()
 }
 
+// FilterCompressed returns only records where output was actually compressed (savings > 0).
+func FilterCompressed(records []Record) []Record {
+	out := records[:0:0]
+	for _, r := range records {
+		if r.FilteredTokens < r.RawTokens {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // GetHistoryByProject returns the last N tracking records for a specific project.
 func GetHistoryByProject(project string, limit int) ([]Record, error) {
 	if err := Init(); err != nil {
