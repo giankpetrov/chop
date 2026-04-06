@@ -306,19 +306,44 @@ func fetchReleaseFile(version, filename string) ([]byte, error) {
 // parseChecksum extracts the SHA256 hash for binaryName from sha256sum-formatted text.
 // Format: "hash  filename\n"
 func parseChecksum(checksums, binaryName string) (string, error) {
-	for _, line := range strings.Split(checksums, "\n") {
+	remaining := checksums
+	for len(remaining) > 0 {
+		var line string
+		if i := strings.IndexByte(remaining, '\n'); i >= 0 {
+			line = remaining[:i]
+			remaining = remaining[i+1:]
+		} else {
+			line = remaining
+			remaining = ""
+		}
+
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
+
 		// sha256sum output: "hash  filename" (two spaces) or "hash *filename"
-		parts := strings.Fields(line)
-		if len(parts) != 2 {
+		// Find first space (end of hash)
+		i := strings.IndexByte(line, ' ')
+		if i == -1 {
 			continue
 		}
-		name := strings.TrimPrefix(parts[1], "*")
+		hash := line[:i]
+
+		// Find start of filename (first non-space after hash)
+		rest := line[i+1:]
+		j := 0
+		for j < len(rest) && rest[j] == ' ' {
+			j++
+		}
+		if j == len(rest) {
+			continue
+		}
+		filenamePart := rest[j:]
+
+		name := strings.TrimPrefix(filenamePart, "*")
 		if name == binaryName {
-			return parts[0], nil
+			return hash, nil
 		}
 	}
 	return "", fmt.Errorf("no checksum found for %s", binaryName)
