@@ -134,6 +134,9 @@ func main() {
 	case "doctor":
 		runDoctor()
 		return
+	case "fix-hooks":
+		runFixHooks()
+		return
 	case "filter":
 		runFilter(os.Args[2:])
 		return
@@ -331,7 +334,26 @@ func main() {
 func trackSilent(command, raw, filtered string) {
 	rawTokens := tracking.CountTokens(raw)
 	filteredTokens := tracking.CountTokens(filtered)
-	_ = tracking.Track(command, rawTokens, filteredTokens)
+	_ = tracking.Track(normalizeCommandForTracking(command), rawTokens, filteredTokens)
+}
+
+// normalizeCommandForTracking strips flags that carry no semantic meaning for
+// tracking purposes. Currently handles git's -C <path> flag, which only sets
+// the working directory and is transparent to what the command actually does.
+func normalizeCommandForTracking(command string) string {
+	fields := strings.Fields(command)
+	if len(fields) < 2 || fields[0] != "git" {
+		return command
+	}
+	out := fields[:1:1] // keep "git"
+	for i := 1; i < len(fields); i++ {
+		if fields[i] == "-C" {
+			i++ // skip the path argument too
+			continue
+		}
+		out = append(out, fields[i])
+	}
+	return strings.Join(out, " ")
 }
 
 func runCapture(args []string) {
@@ -2010,9 +2032,15 @@ func runDoctor() {
 	// 1. Check if hook is installed
 	installed, _ := hooks.IsInstalled()
 	if !installed {
-		fmt.Println("[!] hook is not installed")
-		fmt.Println("    fix: chop init --global")
-		issues++
+		if hooks.HasChopAwareHook() {
+			// User has a wrapper script (e.g. chop-verify.sh) that invokes chop internally.
+			// This is a valid non-standard install — do not report as an error.
+			fmt.Println("[ok] chop wrapper script detected (non-standard install)")
+		} else {
+			fmt.Println("[!] hook is not installed")
+			fmt.Println("    fix: chop init --global")
+			issues++
+		}
 	} else {
 		// 2. Check if hook path matches current binary
 		hookCmd := hooks.GetHookCommand()
@@ -2029,7 +2057,31 @@ func runDoctor() {
 		}
 	}
 
-	// 3. Check if binary is in legacy ~/bin
+	// 3. Check for competing Bash PreToolUse hooks (Claude Code bug #15897)
+	conflicts, err := hooks.FindConflictingBashHooks()
+	if err == nil && conflicts.HasConflict() {
+		fmt.Println("[!] competing Bash PreToolUse hooks detected — chop compression will be silently disabled")
+		fmt.Println("    cause: https://github.com/anthropics/claude-code/issues/15897")
+		fmt.Println("    when multiple Bash PreToolUse hooks are active, Claude Code drops updatedInput from all of them")
+		if len(conflicts.SettingsConflicts) > 0 {
+			fmt.Println("    competing hooks in ~/.claude/settings.json:")
+			for _, cmd := range conflicts.SettingsConflicts {
+				fmt.Printf("      - %s\n", cmd)
+			}
+		}
+		if len(conflicts.PluginConflicts) > 0 {
+			fmt.Println("    competing hooks from plugins:")
+			for _, path := range conflicts.PluginConflicts {
+				fmt.Printf("      - %s\n", path)
+			}
+		}
+		fmt.Println("    fix: run `chop fix-hooks` to generate a combined wrapper script automatically")
+		issues++
+	} else if err == nil {
+		fmt.Println("[ok] no competing Bash PreToolUse hooks")
+	}
+
+	// 4. Check if binary is in legacy ~/bin
 	exe, err := os.Executable()
 	if err == nil {
 		exe, _ = filepath.EvalSymlinks(exe)
@@ -2097,6 +2149,83 @@ func runDoctor() {
 		fmt.Println("\nall good!")
 	} else {
 		fmt.Printf("\n%d issue(s) found\n", issues)
+	}
+}
+
+func runFixHooks() {
+	conflicts, err := hooks.FindConflictingBashHooks()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "chop: failed to check for conflicts: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !conflicts.HasConflict() {
+		fmt.Println("no hook conflicts detected — nothing to fix")
+		return
+	}
+
+	fmt.Println("Competing Bash PreToolUse hooks detected:")
+	fmt.Println("  cause: https://github.com/anthropics/claude-code/issues/15897")
+	for _, cmd := range conflicts.SettingsConflicts {
+		fmt.Printf("  [settings.json] %s\n", cmd)
+	}
+	for _, path := range conflicts.PluginConflicts {
+		fmt.Printf("  [plugin]        %s\n", path)
+	}
+	fmt.Println()
+
+	if len(conflicts.PluginConflicts) > 0 && len(conflicts.SettingsConflicts) == 0 {
+		fmt.Println("Plugin conflicts cannot be auto-fixed — chop cannot modify plugin files.")
+		fmt.Println("Options:")
+		fmt.Println("  [1] Disable the plugin's Bash PreToolUse hook manually (set PreToolUse: [] in the plugin hooks.json)")
+		fmt.Println("  [2] Use a wrapper script: merge the plugin's hook logic into ~/.claude/hooks/chop-wrapper.sh manually")
+		return
+	}
+
+	fmt.Println("How would you like to fix this?")
+	fmt.Println("  [1] Standard — install chop directly and let you merge hooks manually")
+	fmt.Println("  [2] Wrapper  — generate ~/.claude/hooks/chop-wrapper.sh combining all hooks (recommended)")
+	if len(conflicts.PluginConflicts) > 0 {
+		fmt.Println("  Note: plugin conflicts must still be fixed manually (disable PreToolUse in plugin hooks.json)")
+	}
+	fmt.Print("\nEnter choice [1/2]: ")
+
+	var choice string
+	fmt.Scan(&choice) //nolint:errcheck
+
+	switch strings.TrimSpace(choice) {
+	case "1":
+		fmt.Println()
+		fmt.Println("Standard install selected.")
+		fmt.Println("chop is already installed. Remove or merge the competing hooks manually, then run `chop doctor` to verify.")
+	case "2":
+		chopBin, err := buildExpectedHookCmd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to determine binary path: %v\n", err)
+			os.Exit(1)
+		}
+		// Extract just the binary path from `"<path>" hook`
+		chopBinPath := strings.TrimSuffix(strings.Trim(chopBin, `"`), `" hook`)
+		chopBinPath = strings.TrimSuffix(chopBin, " hook")
+		chopBinPath = strings.Trim(chopBinPath, `"`)
+
+		scriptPath, err := hooks.GenerateConflictFixScript(conflicts, chopBinPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to generate wrapper: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("generated: %s\n", scriptPath)
+
+		if err := hooks.ApplyConflictFix(scriptPath); err != nil {
+			fmt.Fprintf(os.Stderr, "chop: failed to update settings.json: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("updated:   ~/.claude/settings.json")
+		fmt.Println()
+		fmt.Println("Done. Run `chop doctor` to verify the fix.")
+	default:
+		fmt.Println("Invalid choice. Run `chop fix-hooks` again.")
+		os.Exit(1)
 	}
 }
 

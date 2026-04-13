@@ -8,6 +8,19 @@ import (
 	"testing"
 )
 
+// writePluginHooksJSON creates a plugin hooks.json file at the given path with a
+// Bash PreToolUse entry using the supplied command string.
+func writePluginHooksJSON(t *testing.T, path string, bashCmd string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("failed to create plugin hooks dir: %v", err)
+	}
+	content := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"` + bashCmd + `"}]}]}}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("failed to write plugin hooks.json: %v", err)
+	}
+}
+
 const testHookCmd = `"/usr/local/bin/chop" hook`
 
 func tempSettingsPath(t *testing.T) string {
@@ -384,5 +397,140 @@ func TestBuildHookCommandFormat(t *testing.T) {
 	}
 	if strings.Contains(cmd, `\`) {
 		t.Errorf("hook command should not contain backslashes, got %q", cmd)
+	}
+}
+
+func TestFindConflictingBashHooks_NoConflicts(t *testing.T) {
+	home := t.TempDir()
+	// Install only the chop hook — no conflicts expected.
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	if err := installWithCommand(settingsPath, testHookCmd); err != nil {
+		t.Fatalf("installWithCommand failed: %v", err)
+	}
+
+	conflicts, err := findConflictingBashHooksIn(home)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conflicts.HasConflict() {
+		t.Errorf("expected no conflicts, got settings=%v plugins=%v",
+			conflicts.SettingsConflicts, conflicts.PluginConflicts)
+	}
+}
+
+func TestFindConflictingBashHooks_WrapperScriptNoConflict(t *testing.T) {
+	home := t.TempDir()
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+
+	// User-created chop wrapper (e.g. chop-verify.sh) — should not be reported as a conflict.
+	settings := map[string]interface{}{
+		"hooks": map[string]interface{}{
+			"PreToolUse": []interface{}{
+				map[string]interface{}{
+					"matcher": "Bash",
+					"hooks": []interface{}{
+						map[string]interface{}{"type": "command", "command": "bash ~/.claude/hooks/chop-verify.sh"},
+					},
+				},
+			},
+		},
+	}
+	writeJSON(t, settingsPath, settings)
+
+	conflicts, err := findConflictingBashHooksIn(home)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conflicts.HasConflict() {
+		t.Errorf("expected no conflicts for chop wrapper script, got %+v", conflicts)
+	}
+}
+
+func TestFindConflictingBashHooks_SettingsConflict(t *testing.T) {
+	home := t.TempDir()
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+
+	// Write settings.json with chop AND a second competing hook in the same Bash matcher.
+	settings := map[string]interface{}{
+		"hooks": map[string]interface{}{
+			"PreToolUse": []interface{}{
+				map[string]interface{}{
+					"matcher": "Bash",
+					"hooks": []interface{}{
+						map[string]interface{}{"type": "command", "command": testHookCmd},
+						map[string]interface{}{"type": "command", "command": "bash ~/.claude/hooks/verify-branch.sh"},
+					},
+				},
+			},
+		},
+	}
+	writeJSON(t, settingsPath, settings)
+
+	conflicts, err := findConflictingBashHooksIn(home)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(conflicts.SettingsConflicts) != 1 {
+		t.Fatalf("expected 1 settings conflict, got %d: %v", len(conflicts.SettingsConflicts), conflicts.SettingsConflicts)
+	}
+	if conflicts.SettingsConflicts[0] != "bash ~/.claude/hooks/verify-branch.sh" {
+		t.Errorf("unexpected conflict command: %q", conflicts.SettingsConflicts[0])
+	}
+	if len(conflicts.PluginConflicts) != 0 {
+		t.Errorf("expected no plugin conflicts, got %v", conflicts.PluginConflicts)
+	}
+}
+
+func TestFindConflictingBashHooks_PluginConflict(t *testing.T) {
+	home := t.TempDir()
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	if err := installWithCommand(settingsPath, testHookCmd); err != nil {
+		t.Fatalf("installWithCommand failed: %v", err)
+	}
+
+	// Simulate a plugin with a Bash PreToolUse hook.
+	pluginHooksPath := filepath.Join(home, ".claude", "plugins", "marketplaces",
+		"dx-claude-code", "plugins", "dx-foundations", "hooks", "hooks.json")
+	writePluginHooksJSON(t, pluginHooksPath, "/path/to/verify-branch.sh")
+
+	conflicts, err := findConflictingBashHooksIn(home)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(conflicts.PluginConflicts) != 1 {
+		t.Fatalf("expected 1 plugin conflict, got %d: %v", len(conflicts.PluginConflicts), conflicts.PluginConflicts)
+	}
+	if !strings.HasSuffix(conflicts.PluginConflicts[0], "hooks.json") {
+		t.Errorf("expected plugin conflict to be a hooks.json path, got %q", conflicts.PluginConflicts[0])
+	}
+	if len(conflicts.SettingsConflicts) != 0 {
+		t.Errorf("expected no settings conflicts, got %v", conflicts.SettingsConflicts)
+	}
+}
+
+func TestFindConflictingBashHooks_EmptyPluginPreToolUse(t *testing.T) {
+	home := t.TempDir()
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	if err := installWithCommand(settingsPath, testHookCmd); err != nil {
+		t.Fatalf("installWithCommand failed: %v", err)
+	}
+
+	// Plugin with PreToolUse:[] — the fixed state; should not be reported as a conflict.
+	pluginHooksPath := filepath.Join(home, ".claude", "plugins", "cache",
+		"dx-claude-code", "dx-foundations", "abc123", "hooks", "hooks.json")
+	if err := os.MkdirAll(filepath.Dir(pluginHooksPath), 0o700); err != nil {
+		t.Fatalf("failed to create dir: %v", err)
+	}
+	if err := os.WriteFile(pluginHooksPath,
+		[]byte(`{"hooks":{"PreToolUse":[]}}`), 0o600); err != nil {
+		t.Fatalf("failed to write plugin hooks.json: %v", err)
+	}
+
+	conflicts, err := findConflictingBashHooksIn(home)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if conflicts.HasConflict() {
+		t.Errorf("expected no conflicts for empty PreToolUse, got %+v", conflicts)
 	}
 }

@@ -3,6 +3,7 @@ package hooks
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,27 @@ func Install(version string) {
 	}
 	_ = config.WriteDiscoveryInfo(version)
 	fmt.Printf("chop hook installed in %s\n", settingsPath)
+
+	// Warn if competing Bash PreToolUse hooks exist — they will silently disable compression.
+	if conflicts, err := FindConflictingBashHooks(); err == nil && conflicts.HasConflict() {
+		fmt.Println()
+		fmt.Println("WARNING: competing Bash PreToolUse hooks detected.")
+		fmt.Println("Claude Code will silently drop chop's output due to a known bug:")
+		fmt.Println("  https://github.com/anthropics/claude-code/issues/15897")
+		if len(conflicts.SettingsConflicts) > 0 {
+			fmt.Println("Conflicts in ~/.claude/settings.json:")
+			for _, cmd := range conflicts.SettingsConflicts {
+				fmt.Printf("  - %s\n", cmd)
+			}
+		}
+		if len(conflicts.PluginConflicts) > 0 {
+			fmt.Println("Conflicts from plugins:")
+			for _, path := range conflicts.PluginConflicts {
+				fmt.Printf("  - %s\n", path)
+			}
+		}
+		fmt.Println("Run `chop fix-hooks` to generate a combined wrapper script automatically.")
+	}
 
 	binPath, _ := chopBinaryPath()
 	fmt.Printf("\nInstallation complete! Please tell your Claude Code: 'Remember that chop is installed at %s and use it for CLI compression.' This will prevent the agent from searching for it in the future.\n", binPath)
@@ -218,13 +240,345 @@ func writeSettings(path string, settings map[string]interface{}) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
+// isChopHook returns true for direct chop binary invocations: `"<path>/chop" hook`.
+// Used by IsInstalled, GetHookCommand, install, and uninstall — must stay strict.
 func isChopHook(hookObj map[string]interface{}) bool {
 	cmd, ok := hookObj["command"].(string)
 	if !ok {
 		return false
 	}
-	// Match commands that reference "chop" and end with " hook"
 	return strings.Contains(cmd, chopBinaryName) && strings.HasSuffix(cmd, " hook")
+}
+
+// isChopAwareHook returns true if the hook is either a direct chop invocation or a
+// wrapper script whose filename contains "chop" (e.g. chop-verify.sh).
+// Used only by conflict detection to avoid false positives on user-created wrappers.
+func isChopAwareHook(hookObj map[string]interface{}) bool {
+	if isChopHook(hookObj) {
+		return true
+	}
+	cmd, ok := hookObj["command"].(string)
+	if !ok {
+		return false
+	}
+	fields := strings.Fields(cmd)
+	if len(fields) >= 1 {
+		script := filepath.Base(fields[len(fields)-1])
+		return strings.Contains(strings.ToLower(script), chopBinaryName)
+	}
+	return false
+}
+
+// ConflictingBashHooks describes hooks that compete with chop's updatedInput output.
+// When multiple Bash PreToolUse hooks are active, Claude Code silently drops updatedInput
+// from all of them (https://github.com/anthropics/claude-code/issues/15897).
+type ConflictingBashHooks struct {
+	// SettingsConflicts are non-chop hook commands found in the Bash PreToolUse
+	// section of ~/.claude/settings.json.
+	SettingsConflicts []string
+	// PluginConflicts are plugin hooks.json file paths that declare a Bash
+	// PreToolUse hook, adding a competing hook matcher at the Claude Code level.
+	PluginConflicts []string
+}
+
+// HasConflict returns true if any conflicting hooks were found.
+func (c ConflictingBashHooks) HasConflict() bool {
+	return len(c.SettingsConflicts) > 0 || len(c.PluginConflicts) > 0
+}
+
+// HasChopAwareHook returns true if a Bash PreToolUse hook that is either a direct
+// chop invocation or a chop wrapper script is registered in settings.json.
+// Unlike IsInstalled, this does not require the strict `"<binary>" hook` form.
+func HasChopAwareHook() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	settings, err := readSettings(settingsPath)
+	if err != nil {
+		return false
+	}
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		return false
+	}
+	hooksMap, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	ptuRaw, ok := hooksMap["PreToolUse"]
+	if !ok {
+		return false
+	}
+	ptu, ok := ptuRaw.([]interface{})
+	if !ok {
+		return false
+	}
+	for _, entry := range ptu {
+		m, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if matcher, _ := m["matcher"].(string); matcher != "Bash" {
+			continue
+		}
+		hooksArrayRaw, ok := m["hooks"]
+		if !ok {
+			continue
+		}
+		hooksArray, ok := hooksArrayRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, h := range hooksArray {
+			hMap, ok := h.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if isChopAwareHook(hMap) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// FindConflictingBashHooks scans settings.json and plugin hooks.json files for
+// Bash PreToolUse hooks that would compete with chop's updatedInput output.
+func FindConflictingBashHooks() (ConflictingBashHooks, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ConflictingBashHooks{}, fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return findConflictingBashHooksIn(home)
+}
+
+// findConflictingBashHooksIn is the testable core of FindConflictingBashHooks.
+func findConflictingBashHooksIn(home string) (ConflictingBashHooks, error) {
+	result := ConflictingBashHooks{}
+
+	// --- scan settings.json for non-chop Bash PreToolUse hooks ---
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	settings, err := readSettings(settingsPath)
+	if err == nil {
+		if hooksRaw, ok := settings["hooks"]; ok {
+			if hooksMap, ok := hooksRaw.(map[string]interface{}); ok {
+				if ptuRaw, ok := hooksMap["PreToolUse"]; ok {
+					if ptu, ok := ptuRaw.([]interface{}); ok {
+						for _, entry := range ptu {
+							m, ok := entry.(map[string]interface{})
+							if !ok {
+								continue
+							}
+							if matcher, _ := m["matcher"].(string); matcher != "Bash" {
+								continue
+							}
+							hooksArrayRaw, ok := m["hooks"]
+							if !ok {
+								continue
+							}
+							hooksArray, ok := hooksArrayRaw.([]interface{})
+							if !ok {
+								continue
+							}
+							for _, h := range hooksArray {
+								hMap, ok := h.(map[string]interface{})
+								if !ok {
+									continue
+								}
+								if isChopAwareHook(hMap) {
+									continue // chop or a chop wrapper — not a conflict
+								}
+								if cmd, ok := hMap["command"].(string); ok && cmd != "" {
+									result.SettingsConflicts = append(result.SettingsConflicts, cmd)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// --- scan plugin hooks.json files for Bash PreToolUse entries ---
+	pluginsDir := filepath.Join(home, ".claude", "plugins")
+	if _, err := os.Stat(pluginsDir); err == nil {
+		_ = filepath.WalkDir(pluginsDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			// Only care about hooks/hooks.json files inside the plugins tree
+			if d.Name() != "hooks.json" {
+				return nil
+			}
+			if filepath.Base(filepath.Dir(path)) != "hooks" {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+			var pluginHooks struct {
+				Hooks struct {
+					PreToolUse []struct {
+						Matcher string `json:"matcher"`
+						Hooks   []struct {
+							Command string `json:"command"`
+						} `json:"hooks"`
+					} `json:"PreToolUse"`
+				} `json:"hooks"`
+			}
+			if json.Unmarshal(data, &pluginHooks) != nil {
+				return nil
+			}
+			for _, entry := range pluginHooks.Hooks.PreToolUse {
+				if entry.Matcher != "Bash" {
+					continue
+				}
+				for _, h := range entry.Hooks {
+					if h.Command != "" {
+						result.PluginConflicts = append(result.PluginConflicts, path)
+						return nil // one report per file is enough
+					}
+				}
+			}
+			return nil
+		})
+	}
+
+	return result, nil
+}
+
+// WrapperScriptPath returns the canonical path for the chop-generated wrapper script.
+func WrapperScriptPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(home, ".claude", "hooks", "chop-wrapper.sh"), nil
+}
+
+// GenerateConflictFixScript writes a combined Bash PreToolUse wrapper script to
+// ~/.claude/hooks/chop-wrapper.sh. The script runs each competing hook first (forwarding
+// any denial), then invokes chop for command rewriting. Only settings.json conflicts can
+// be auto-fixed; plugin conflicts require manual intervention.
+func GenerateConflictFixScript(conflicts ConflictingBashHooks, chopBinPath string) (string, error) {
+	scriptPath, err := WrapperScriptPath()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o700); err != nil {
+		return "", fmt.Errorf("failed to create hooks directory: %w", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("#!/usr/bin/env bash\n")
+	sb.WriteString("# Combined Bash PreToolUse hook — generated by chop fix-hooks\n")
+	sb.WriteString("# Workaround for: https://github.com/anthropics/claude-code/issues/15897\n")
+	sb.WriteString("INPUT=$(cat)\n\n")
+	sb.WriteString("_run_hook() {\n")
+	sb.WriteString("  local out\n")
+	sb.WriteString("  out=$(printf '%s' \"$INPUT\" | eval \"$1\" 2>/dev/null) || return 0\n")
+	sb.WriteString("  if printf '%s' \"$out\" | grep -q '\"permissionDecision\":\"deny\"'; then\n")
+	sb.WriteString("    printf '%s\\n' \"$out\"\n")
+	sb.WriteString("    exit 0\n")
+	sb.WriteString("  fi\n")
+	sb.WriteString("}\n\n")
+
+	if len(conflicts.SettingsConflicts) > 0 {
+		sb.WriteString("# Competing hooks (run before chop)\n")
+		for _, cmd := range conflicts.SettingsConflicts {
+			sb.WriteString(fmt.Sprintf("_run_hook %s\n", shellQuote(cmd)))
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("# chop: rewrite supported commands for compression\n")
+	sb.WriteString(fmt.Sprintf("printf '%%s' \"$INPUT\" | %s hook\n", shellQuote(chopBinPath)))
+
+	if err := os.WriteFile(scriptPath, []byte(sb.String()), 0o755); err != nil {
+		return "", fmt.Errorf("failed to write wrapper script: %w", err)
+	}
+	return scriptPath, nil
+}
+
+// ApplyConflictFix replaces all Bash PreToolUse hooks in settings.json with a single
+// wrapper hook pointing to wrapperPath.
+func ApplyConflictFix(wrapperPath string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	settings, err := readSettings(settingsPath)
+	if err != nil {
+		return err
+	}
+
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		hooksRaw = make(map[string]interface{})
+		settings["hooks"] = hooksRaw
+	}
+	hooksMap, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("hooks field is not an object in %s", settingsPath)
+	}
+
+	ptuRaw, ok := hooksMap["PreToolUse"]
+	if !ok {
+		ptuRaw = []interface{}{}
+	}
+	ptu, ok := ptuRaw.([]interface{})
+	if !ok {
+		return fmt.Errorf("hooks.PreToolUse is not an array in %s", settingsPath)
+	}
+
+	// Convert path to forward slashes for shell compatibility
+	wrapperCmd := "bash " + strings.ReplaceAll(wrapperPath, "\\", "/")
+
+	// Replace all Bash matcher entries with a single wrapper entry
+	newPTU := make([]interface{}, 0, len(ptu))
+	bashReplaced := false
+	for _, entry := range ptu {
+		m, ok := entry.(map[string]interface{})
+		if !ok {
+			newPTU = append(newPTU, entry)
+			continue
+		}
+		if matcher, _ := m["matcher"].(string); matcher != "Bash" {
+			newPTU = append(newPTU, entry)
+			continue
+		}
+		if !bashReplaced {
+			newPTU = append(newPTU, map[string]interface{}{
+				"matcher": "Bash",
+				"hooks": []interface{}{
+					map[string]interface{}{"type": "command", "command": wrapperCmd},
+				},
+			})
+			bashReplaced = true
+		}
+		// Additional Bash matcher entries are dropped (merged into wrapper)
+	}
+	if !bashReplaced {
+		newPTU = append(newPTU, map[string]interface{}{
+			"matcher": "Bash",
+			"hooks": []interface{}{
+				map[string]interface{}{"type": "command", "command": wrapperCmd},
+			},
+		})
+	}
+
+	hooksMap["PreToolUse"] = newPTU
+	settings["hooks"] = hooksMap
+	return writeSettings(settingsPath, settings)
+}
+
+// shellQuote wraps a string in single quotes, escaping any single quotes within.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 func installTo(settingsPath string) error {
