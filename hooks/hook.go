@@ -28,6 +28,11 @@ var supportedCommands = map[string]bool{
 	"cat": true, "tail": true, "less": true, "more": true,
 	"find": true, "node": true, "node16": true, "node18": true, "node20": true, "node22": true,
 	"acli": true,
+	// filters added in v1.38.2 — wired to registry but missing from hook interception
+	"golangci-lint": true, "turbo": true, "poetry": true, "conda": true, "pipenv": true,
+	"snyk": true, "trivy": true, "kustomize": true, "argocd": true, "flux": true,
+	"stern": true, "vault": true, "psql": true, "mysql": true, "sqlite3": true,
+	"glab": true, "mvnw": true,
 }
 
 // shellBuiltins are commands that should never be wrapped.
