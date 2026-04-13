@@ -4,6 +4,7 @@ bin/
 .claude/
 nul
 tests/fixtures/
+.dx-foundations/
 
 # chop
 .chop.yml
